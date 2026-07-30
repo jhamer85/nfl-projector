@@ -37,7 +37,7 @@
     .game-header { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 4px; }
     .game-matchup { display: flex; align-items: center; gap: 8px; }
 
-    .pick-btn { flex: 1; padding: 10px 6px; border-radius: 6px; border: 1px solid var(--card-border); background-color: #0f172a; color: var(--text-main); font-weight: 600; font-size: 0.85rem; cursor: pointer; }
+    .pick-btn { flex: 1; padding: 10px 6px; border-radius: 6px; border: 1px solid var(--card-border); background-color: #0f172a; color: var(--text-main); font-weight: 600; font-size: 0.85rem; cursor: pointer; margin-top: 4px; margin-bottom: 4px; display: block; width: 100%; text-align: center; }
     .pick-btn.selected-win { background-color: var(--accent-green); border-color: #4ade80; color: #ffffff; }
     .pick-btn.selected-loss { background-color: #334155; color: #94a3b8; opacity: 0.5; }
     .vs-text { font-size: 0.75rem; color: var(--text-muted); font-weight: bold; }
@@ -51,8 +51,8 @@
 
     .bracket-sec { background-color: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 12px; margin-bottom: 16px; }
     .bracket-title { font-size: 0.95rem; color: var(--accent-gold); text-align: center; margin-bottom: 10px; text-transform: uppercase; font-weight: bold; }
-    .matchup-box { background-color: #0f172a; border: 1px solid var(--card-border); border-radius: 8px; padding: 8px; margin-bottom: 10px; }
-    .matchup-box .pick-btn { margin: 3px 0; width: 100%; display: block; text-align: left; padding: 8px 10px; }
+    .seed-bye-box { background-color: #0f172a; border: 1px dashed var(--accent-gold); border-radius: 8px; padding: 10px; text-align: center; margin-bottom: 12px; font-weight: bold; color: var(--accent-gold); font-size: 0.85rem; }
+    .matchup-box { background-color: #0f172a; border: 1px solid var(--card-border); border-radius: 8px; padding: 8px; margin-bottom: 10px; display: flex; gap: 8px; align-items: center; }
 
     .reset-btn { display: block; width: 100%; padding: 12px; background-color: var(--accent-red); color: #fff; border: none; border-radius: 8px; font-weight: bold; font-size: 0.9rem; margin-top: 15px; cursor: pointer; }
   </style>
@@ -100,7 +100,6 @@
       DIVISIONS[div].forEach(t => TEAMS[t] = { conf, div });
     });
 
-    // COMPACT FULL 2026 REGULAR SEASON SCHEDULE DATA (272 GAMES)
     const RAW_SCHEDULE = [
       "1|Wed|20:20|Patriots|Seahawks","1|Thu|20:35|49ers|Rams","1|Sun|13:00|Bears|Panthers","1|Sun|13:00|Buccaneers|Bengals","1|Sun|13:00|Ravens|Colts","1|Sun|13:00|Saints|Lions","1|Sun|13:00|Bills|Texans","1|Sun|13:00|Browns|Jaguars","1|Sun|13:00|Jets|Titans","1|Sun|13:00|Falcons|Steelers","1|Sun|16:25|Cardinals|Chargers","1|Sun|16:25|Packers|Vikings","1|Sun|16:25|Dolphins|Raiders","1|Sun|16:25|Commanders|Eagles","1|Sun|20:20|Cowboys|Giants","1|Mon|20:15|Broncos|Chiefs",
       "2|Thu|20:15|Lions|Bills","2|Sun|13:00|Panthers|Falcons","2|Sun|13:00|Saints|Ravens","2|Sun|13:00|Vikings|Bears","2|Sun|13:00|Bengals|Texans","2|Sun|13:00|Steelers|Patriots","2|Sun|13:00|Packers|Jets","2|Sun|13:00|Browns|Buccaneers","2|Sun|13:00|Eagles|Titans","2|Sun|16:05|Jaguars|Broncos","2|Sun|16:05|Raiders|Chargers","2|Sun|16:25|Seahawks|Cardinals","2|Sun|16:25|Commanders|Cowboys","2|Sun|16:25|Dolphins|49ers","2|Sun|20:20|Colts|Chiefs","2|Mon|20:15|Giants|Rams",
@@ -127,14 +126,14 @@
       return { id: `g2026_${idx + 1}`, week: parseInt(w), day, time, away, home };
     });
 
-    let userPicks = JSON.parse(localStorage.getItem('nfl_picks_ghpages')) || {};
-    let playoffPicks = JSON.parse(localStorage.getItem('nfl_playoffs_ghpages')) || {};
+    let userPicks = JSON.parse(localStorage.getItem('nfl_picks_v2')) || {};
+    let playoffPicks = JSON.parse(localStorage.getItem('nfl_playoffs_v2')) || {};
     let activeDiv = "NFC East";
     let activeTeam = "Eagles";
 
     function saveState() {
-      localStorage.setItem('nfl_picks_ghpages', JSON.stringify(userPicks));
-      localStorage.setItem('nfl_playoffs_ghpages', JSON.stringify(playoffPicks));
+      localStorage.setItem('nfl_picks_v2', JSON.stringify(userPicks));
+      localStorage.setItem('nfl_playoffs_v2', JSON.stringify(playoffPicks));
     }
 
     function resetAllData() {
@@ -286,27 +285,124 @@
     function renderPlayoffs() {
       const container = document.getElementById('playoffs-container');
       container.innerHTML = '';
-      container.appendChild(renderConfBracket("AFC", getConferenceSeeds("AFC")));
-      container.appendChild(renderConfBracket("NFC", getConferenceSeeds("NFC")));
+      const afcSeeds = getConferenceSeeds("AFC");
+      const nfcSeeds = getConferenceSeeds("NFC");
+
+      container.appendChild(renderConferenceBracket("AFC", afcSeeds));
+      container.appendChild(renderConferenceBracket("NFC", nfcSeeds));
+      container.appendChild(renderSuperBowl(afcSeeds, nfcSeeds));
     }
 
-    function renderConfBracket(conf, seeds) {
+    function renderConferenceBracket(conf, seeds) {
       const sec = document.createElement('div');
       sec.className = 'bracket-sec';
-      sec.innerHTML = `
-        <div class="bracket-title">${conf} Playoff Bracket</div>
-        <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:8px;">WILD CARD ROUND (#1 Seed Bye)</div>
-        <div class="matchup-box">${renderPlayoffTeamBtn(`${conf}_WC1`, seeds[1]?.name, 2)}${renderPlayoffTeamBtn(`${conf}_WC1`, seeds[6]?.name, 7)}</div>
-        <div class="matchup-box">${renderPlayoffTeamBtn(`${conf}_WC2`, seeds[2]?.name, 3)}${renderPlayoffTeamBtn(`${conf}_WC2`, seeds[5]?.name, 6)}</div>
-        <div class="matchup-box">${renderPlayoffTeamBtn(`${conf}_WC3`, seeds[3]?.name, 4)}${renderPlayoffTeamBtn(`${conf}_WC3`, seeds[4]?.name, 5)}</div>
-      `;
+      let html = `<div class="bracket-title">${conf} Playoff Bracket</div>`;
+
+      // Prominent #1 Seed Bye Display
+      const topSeed = seeds[0];
+      if (topSeed) {
+        html += `<div class="seed-bye-box">⭐ #1 SEED BYE: ${topSeed.name} (${topSeed.w}-${topSeed.l}) ⭐</div>`;
+      } else {
+        html += `<div class="seed-bye-box">⭐ #1 SEED BYE: TBD ⭐</div>`;
+      }
+
+      // Wild Card Round
+      html += `<div style="font-size:0.8rem; color:var(--accent-gold); margin:8px 0 6px; font-weight:bold;">1. WILD CARD ROUND</div>`;
+      const wcMatches = [
+        { key: `${conf}_WC1`, high: seeds[1], low: seeds[6] },
+        { key: `${conf}_WC2`, high: seeds[2], low: seeds[5] },
+        { key: `${conf}_WC3`, high: seeds[3], low: seeds[4] }
+      ];
+
+      wcMatches.forEach(m => {
+        html += `<div class="matchup-box">${renderMatchupBtns(m.key, m.high, m.low)}</div>`;
+      });
+
+      // Wild Card Winners
+      const wcWinners = [];
+      wcMatches.forEach(m => {
+        const picked = playoffPicks[m.key];
+        if (picked) {
+          const t = [m.high, m.low].find(x => x?.name === picked);
+          if (t) wcWinners.push(t);
+        }
+      });
+
+      // Divisional Round
+      html += `<div style="font-size:0.8rem; color:var(--accent-gold); margin:12px 0 6px; font-weight:bold;">2. DIVISIONAL ROUND</div>`;
+      if (wcWinners.length < 3) {
+        html += `<div style="font-size:0.75rem; color:var(--text-muted); padding:8px; text-align:center;">Pick all 3 Wild Card winners to unlock Divisional matchups</div>`;
+      } else {
+        const divTeams = [seeds[0], ...wcWinners].sort((a,b) => seeds.indexOf(a) - seeds.indexOf(b));
+        const divMatches = [
+          { key: `${conf}_DIV1`, high: divTeams[0], low: divTeams[3] },
+          { key: `${conf}_DIV2`, high: divTeams[1], low: divTeams[2] }
+        ];
+
+        divMatches.forEach(m => {
+          html += `<div class="matchup-box">${renderMatchupBtns(m.key, m.high, m.low)}</div>`;
+        });
+
+        // Conference Championship
+        const divWinners = [];
+        divMatches.forEach(m => {
+          const picked = playoffPicks[m.key];
+          if (picked) {
+            const t = [m.high, m.low].find(x => x?.name === picked);
+            if (t) divWinners.push(t);
+          }
+        });
+
+        html += `<div style="font-size:0.8rem; color:var(--accent-gold); margin:12px 0 6px; font-weight:bold;">3. ${conf} CHAMPIONSHIP</div>`;
+        if (divWinners.length < 2) {
+          html += `<div style="font-size:0.75rem; color:var(--text-muted); padding:8px; text-align:center;">Pick both Divisional winners to unlock Championship</div>`;
+        } else {
+          divWinners.sort((a,b) => seeds.indexOf(a) - seeds.indexOf(b));
+          html += `<div class="matchup-box">${renderMatchupBtns(`${conf}_CONF`, divWinners[0], divWinners[1])}</div>`;
+        }
+      }
+
+      sec.innerHTML = html;
       return sec;
     }
 
-    function renderPlayoffTeamBtn(matchKey, teamName, seed) {
-      if (!teamName) return `<div style="padding:6px; color:#64748b;">TBD</div>`;
-      const isPicked = playoffPicks[matchKey] === teamName;
-      return `<button class="pick-btn ${isPicked ? 'selected-win' : ''}" onclick="pickPlayoff('${matchKey}', '${teamName}')"><span style="color:var(--accent-gold)">#${seed}</span> ${teamName}</button>`;
+    function renderSuperBowl(afcSeeds, nfcSeeds) {
+      const sec = document.createElement('div');
+      sec.className = 'bracket-sec';
+      let html = `<div class="bracket-title">SUPER BOWL</div>`;
+
+      const afcChampName = playoffPicks["AFC_CONF"];
+      const nfcChampName = playoffPicks["NFC_CONF"];
+
+      const afcChamp = afcSeeds.find(s => s.name === afcChampName);
+      const nfcChamp = nfcSeeds.find(s => s.name === nfcChampName);
+
+      if (!afcChamp || !nfcChamp) {
+        html += `<div style="font-size:0.75rem; color:var(--text-muted); padding:10px; text-align:center;">Pick AFC and NFC Champions to unlock the Super Bowl!</div>`;
+      } else {
+        html += `<div class="matchup-box">${renderMatchupBtns("SUPER_BOWL", afcChamp, nfcChamp)}</div>`;
+        const sbWinner = playoffPicks["SUPER_BOWL"];
+        if (sbWinner) {
+          html += `<div style="text-align:center; padding:12px; font-weight:bold; color:var(--accent-gold); font-size:1.1rem; border:1px solid var(--accent-gold); border-radius:8px; margin-top:10px; background-color:#0f172a;">🏆 SUPER BOWL CHAMPION: ${sbWinner.toUpperCase()} 🏆</div>`;
+        }
+      }
+
+      sec.innerHTML = html;
+      return sec;
+    }
+
+    function renderMatchupBtns(matchKey, t1, t2) {
+      if (!t1 || !t2) return `<div style="padding:6px; color:#64748b;">TBD</div>`;
+      const picked = playoffPicks[matchKey];
+      return `
+        <button class="pick-btn ${picked === t1.name ? 'selected-win' : (picked ? 'selected-loss' : '')}" onclick="pickPlayoff('${matchKey}', '${t1.name}')">
+          ${t1.name}
+        </button>
+        <span class="vs-text">vs</span>
+        <button class="pick-btn ${picked === t2.name ? 'selected-win' : (picked ? 'selected-loss' : '')}" onclick="pickPlayoff('${matchKey}', '${t2.name}')">
+          ${t2.name}
+        </button>
+      `;
     }
 
     function pickPlayoff(matchKey, teamName) {
