@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2026 NFL Projector</title>
+  <style>
+    :root {
+      --bg-dark: #0f172a;
+      --card-bg: #1e293b;
+      --card-border: #334155;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-blue: #2563eb;
+      --accent-green: #16a34a;
+      --accent-red: #dc2626;
+      --accent-gold: #eab308;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-main); padding-bottom: 75px; }
+    header { background-color: #020617; padding: 14px; text-align: center; border-bottom: 1px solid var(--card-border); position: sticky; top: 0; z-index: 100; }
+    header h1 { font-size: 1.15rem; text-transform: uppercase; color: var(--accent-gold); letter-spacing: 0.5px; }
+
+    .nav-tabs { display: flex; position: fixed; bottom: 0; left: 0; right: 0; background-color: #020617; border-top: 1px solid var(--card-border); z-index: 1000; }
+    .nav-btn { flex: 1; padding: 14px 0; background: none; border: none; color: var(--text-muted); font-weight: 600; font-size: 0.9rem; cursor: pointer; transition: all 0.2s; }
+    .nav-btn.active { color: var(--accent-gold); border-top: 3px solid var(--accent-gold); background-color: #0f172a; }
+
+    .tab-content { display: none; padding: 12px; max-width: 650px; margin: 0 auto; }
+    .tab-content.active { display: block; }
+
+    .division-grid, .teams-sub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .div-btn, .team-btn-nav { background-color: var(--card-bg); border: 1px solid var(--card-border); color: var(--text-main); padding: 10px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
+    .div-btn.active, .team-btn-nav.active { background-color: var(--accent-blue); border-color: #60a5fa; }
+
+    .game-card { background-color: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
+    .game-header { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 4px; }
+    .game-matchup { display: flex; align-items: center; gap: 8px; }
+
+    .pick-btn { flex: 1; padding: 10px 6px; border-radius: 6px; border: 1px solid var(--card-border); background-color: #0f172a; color: var(--text-main); font-weight: 600; font-size: 0.85rem; cursor: pointer; }
+    .pick-btn.selected-win { background-color: var(--accent-green); border-color: #4ade80; color: #ffffff; }
+    .pick-btn.selected-loss { background-color: #334155; color: #94a3b8; opacity: 0.5; }
+    .vs-text { font-size: 0.75rem; color: var(--text-muted); font-weight: bold; }
+
+    .standings-sec { margin-bottom: 20px; }
+    .standings-title { font-size: 0.95rem; color: var(--accent-gold); margin-bottom: 6px; border-left: 3px solid var(--accent-gold); padding-left: 8px; font-weight: bold; }
+    .standings-table { width: 100%; border-collapse: collapse; background-color: var(--card-bg); border-radius: 8px; overflow: hidden; font-size: 0.8rem; }
+    .standings-table th, .standings-table td { padding: 8px 6px; text-align: center; border-bottom: 1px solid var(--card-border); }
+    .standings-table th { background-color: #0f172a; color: var(--text-muted); font-size: 0.7rem; }
+    .standings-table td:first-child, .standings-table th:first-child { text-align: left; padding-left: 10px; }
+
+    .bracket-sec { background-color: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 12px; margin-bottom: 16px; }
+    .bracket-title { font-size: 0.95rem; color: var(--accent-gold); text-align: center; margin-bottom: 10px; text-transform: uppercase; font-weight: bold; }
+    .matchup-box { background-color: #0f172a; border: 1px solid var(--card-border); border-radius: 8px; padding: 8px; margin-bottom: 10px; }
+    .matchup-box .pick-btn { margin: 3px 0; width: 100%; display: block; text-align: left; padding: 8px 10px; }
+
+    .reset-btn { display: block; width: 100%; padding: 12px; background-color: var(--accent-red); color: #fff; border: none; border-radius: 8px; font-weight: bold; font-size: 0.9rem; margin-top: 15px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+  <header><h1>2026 NFL Projector</h1></header>
+
+  <div id="tab-schedules" class="tab-content active">
+    <div class="division-grid" id="div-nav"></div>
+    <div class="teams-sub-grid" id="team-nav"></div>
+    <div id="schedule-list"></div>
+  </div>
+
+  <div id="tab-standings" class="tab-content">
+    <div id="standings-container"></div>
+  </div>
+
+  <div id="tab-playoffs" class="tab-content">
+    <div id="playoffs-container"></div>
+    <button class="reset-btn" onclick="resetAllData()">Reset All Picks</button>
+  </div>
+
+  <nav class="nav-tabs">
+    <button class="nav-btn active" onclick="switchTab('schedules')">Schedules</button>
+    <button class="nav-btn" onclick="switchTab('standings')">Standings</button>
+    <button class="nav-btn" onclick="switchTab('playoffs')">Playoffs</button>
+  </nav>
+
+  <script>
+    const DIVISIONS = {
+      "NFC East": ["Eagles", "Commanders", "Cowboys", "Giants"],
+      "NFC North": ["Lions", "Packers", "Bears", "Vikings"],
+      "NFC South": ["Falcons", "Buccaneers", "Saints", "Panthers"],
+      "NFC West": ["49ers", "Rams", "Seahawks", "Cardinals"],
+      "AFC East": ["Bills", "Dolphins", "Patriots", "Jets"],
+      "AFC North": ["Ravens", "Bengals", "Browns", "Steelers"],
+      "AFC South": ["Texans", "Jaguars", "Colts", "Titans"],
+      "AFC West": ["Chiefs", "Chargers", "Broncos", "Raiders"]
+    };
+
+    const TEAMS = {};
+    Object.keys(DIVISIONS).forEach(div => {
+      const conf = div.startsWith("NFC") ? "NFC" : "AFC";
+      DIVISIONS[div].forEach(t => TEAMS[t] = { conf, div });
+    });
+
+    // COMPACT FULL 2026 REGULAR SEASON SCHEDULE DATA (272 GAMES)
+    const RAW_SCHEDULE = [
+      "1|Wed|20:20|Patriots|Seahawks","1|Thu|20:35|49ers|Rams","1|Sun|13:00|Bears|Panthers","1|Sun|13:00|Buccaneers|Bengals","1|Sun|13:00|Ravens|Colts","1|Sun|13:00|Saints|Lions","1|Sun|13:00|Bills|Texans","1|Sun|13:00|Browns|Jaguars","1|Sun|13:00|Jets|Titans","1|Sun|13:00|Falcons|Steelers","1|Sun|16:25|Cardinals|Chargers","1|Sun|16:25|Packers|Vikings","1|Sun|16:25|Dolphins|Raiders","1|Sun|16:25|Commanders|Eagles","1|Sun|20:20|Cowboys|Giants","1|Mon|20:15|Broncos|Chiefs",
+      "2|Thu|20:15|Lions|Bills","2|Sun|13:00|Panthers|Falcons","2|Sun|13:00|Saints|Ravens","2|Sun|13:00|Vikings|Bears","2|Sun|13:00|Bengals|Texans","2|Sun|13:00|Steelers|Patriots","2|Sun|13:00|Packers|Jets","2|Sun|13:00|Browns|Buccaneers","2|Sun|13:00|Eagles|Titans","2|Sun|16:05|Jaguars|Broncos","2|Sun|16:05|Raiders|Chargers","2|Sun|16:25|Seahawks|Cardinals","2|Sun|16:25|Commanders|Cowboys","2|Sun|16:25|Dolphins|49ers","2|Sun|20:20|Colts|Chiefs","2|Mon|20:15|Giants|Rams",
+      "3|Thu|20:15|Falcons|Packers","3|Sun|13:00|Chargers|Bills","3|Sun|13:00|Chiefs|Dolphins","3|Sun|13:00|Patriots|Jaguars","3|Sun|13:00|Jets|Lions","3|Sun|13:00|Titans|Giants","3|Sun|13:00|Bengals|Steelers","3|Sun|13:00|Seahawks|Commanders","3|Sun|13:00|Panthers|Browns","3|Sun|13:00|Rams|Buccaneers","3|Sun|13:00|Vikings|Saints","3|Sun|16:05|Cardinals|49ers","3|Sun|16:25|Ravens|Cowboys","3|Sun|16:25|Broncos|Raiders","3|Sun|20:20|Texans|Colts","3|Mon|20:15|Eagles|Bears",
+      "4|Thu|20:15|Steelers|Browns","4|Sun|09:30|Colts|Commanders","4|Sun|13:00|Titans|Ravens","4|Sun|13:00|Patriots|Bills","4|Sun|13:00|Jets|Bears","4|Sun|13:00|Jaguars|Bengals","4|Sun|13:00|Dolphins|Vikings","4|Sun|13:00|Rams|Eagles","4|Sun|13:00|Cowboys|Texans","4|Sun|13:00|Commanders|Falcons","4|Sun|13:00|Panthers|Saints","4|Sun|13:00|Lions|Panthers","4|Sun|16:05|Cardinals|Giants","4|Sun|16:25|Chiefs|49ers","4|Sun|16:25|Packers|Chargers","4|Mon|20:15|Falcons|Saints",
+      "5|Thu|20:15|Buccaneers|Cowboys","5|Sun|09:30|Eagles|Jaguars","5|Sun|13:00|Bengals|Dolphins","5|Sun|13:00|Raiders|Patriots","5|Sun|13:00|Vikings|Saints","5|Sun|13:00|Browns|Jets","5|Sun|13:00|Colts|Steelers","5|Sun|13:00|Texans|Titans","5|Sun|13:00|Giants|Commanders","5|Sun|16:05|Broncos|Chargers","5|Sun|16:25|Lions|Cardinals","5|Sun|16:25|Bears|Packers","5|Sun|16:25|49ers|Seahawks",
+      "6|Sun|09:30|Texans|Jaguars","6|Sun|13:00|Bears|Falcons","6|Sun|13:00|Ravens|Browns","6|Sun|13:00|Titans|Colts","6|Sun|13:00|Jets|Patriots","6|Sun|13:00|Saints|Giants","6|Sun|13:00|Panthers|Eagles","6|Sun|13:00|Steelers|Buccaneers","6|Sun|16:05|Cardinals|Rams","6|Sun|16:25|Chargers|Chiefs","6|Sun|16:25|Bills|Raiders","6|Mon|20:15|Commanders|49ers",
+      "7|Thu|20:15|Patriots|Bears","7|Sun|09:30|Steelers|Saints","7|Sun|13:00|Dolphins|Jets","7|Sun|13:00|Bengals|Ravens","7|Sun|13:00|Browns|Colts","7|Sun|13:00|Jaguars|Texans","7|Sun|13:00|Titans|Panthers","7|Sun|13:00|Lions|Falcons","7|Sun|16:05|Rams|Seahawks","7|Sun|16:25|Packers|Vikings","7|Sun|16:25|Buccaneers|Cardinals","7|Sun|16:25|Chiefs|Broncos","7|Sun|20:20|Chargers|Raiders","7|Mon|20:15|Cowboys|Eagles",
+      "8|Sun|13:00|Patriots|Dolphins","8|Sun|13:00|Raiders|Jets","8|Sun|13:00|Ravens|Bills","8|Sun|13:00|Eagles|Commanders","8|Sun|13:00|Steelers|Browns","8|Sun|13:00|Cardinals|Cowboys","8|Sun|13:00|Colts|Texans","8|Sun|13:00|Jaguars|Titans","8|Sun|13:00|Panthers|Buccaneers","8|Sun|13:00|Saints|Falcons","8|Sun|16:25|Lions|Packers","8|Sun|16:25|Rams|49ers","8|Sun|20:20|Chargers|Chiefs","8|Mon|20:15|Bears|Seahawks",
+      "9|Thu|20:15|Jaguars|Ravens","9|Sun|09:30|Bengals|Falcons","9|Sun|13:00|Packers|Patriots","9|Sun|13:00|Giants|Eagles","9|Sun|13:00|Bills|Jets","9|Sun|13:00|Dolphins|Lions","9|Sun|13:00|Cowboys|Colts","9|Sun|13:00|Buccaneers|Bears","9|Sun|13:00|Rams|Commanders","9|Sun|16:05|49ers|Cardinals","9|Sun|16:25|Seahawks|Chiefs","9|Sun|20:20|Broncos|Chargers",
+      "10|Sun|09:30|Patriots|Lions","10|Sun|13:00|Bills|Jets","10|Sun|13:00|Dolphins|Colts","10|Sun|13:00|Steelers|Bengals","10|Thu|20:15|Commanders|Giants","10|Sun|13:00|Texans|Browns","10|Sun|13:00|Falcons|Buccaneers","10|Sun|16:05|Cardinals|Rams","10|Sun|16:25|49ers|Cowboys","10|Sun|16:25|Raiders|Broncos","10|Mon|20:15|Chargers|Ravens",
+      "11|Sun|13:00|Dolphins|Bills","11|Sun|13:00|Jets|Chargers","11|Sun|13:00|Steelers|Eagles","11|Sun|13:00|Jaguars|Giants","11|Sun|13:00|Ravens|Panthers","11|Sun|13:00|Browns|Titans","11|Sun|13:00|Colts|Texans","11|Sun|13:00|Panthers|Falcons","11|Sun|13:00|Saints|Bears","11|Sun|13:00|Packers|Lions","11|Sun|16:05|Commanders|Bengals","11|Sun|16:25|Rams|49ers","11|Sun|16:25|Seahawks|Chiefs","11|Sun|20:20|Titans|Cowboys","11|Mon|20:15|Vikings|49ers",
+      "12|Thu|13:00|Bears|Lions","12|Thu|16:30|Eagles|Cowboys","12|Thu|20:20|Chiefs|Bills","12|Fri|15:00|Broncos|Steelers","12|Sun|13:00|Jets|Dolphins","12|Sun|13:00|Patriots|Bengals","12|Sun|13:00|Ravens|Texans","12|Sun|13:00|Raiders|Browns","12|Sun|13:00|Giants|Colts","12|Sun|13:00|Commanders|Cardinals","12|Sun|13:00|Falcons|Vikings","12|Sun|16:25|49ers|Rams","12|Sun|16:25|Chargers|Seahawks","12|Sun|20:20|Buccaneers|Saints",
+      "13|Sun|13:00|Bills|Patriots","13|Sun|13:00|Dolphins|Jets","13|Sun|13:00|Bengals|Browns","13|Sun|13:00|Texans|Steelers","13|Sun|13:00|Jaguars|Bears","13|Sun|13:00|Commanders|Titans","13|Sun|13:00|Lions|Falcons","13|Sun|13:00|Saints|Panthers","13|Sun|16:05|Eagles|Cardinals","13|Sun|16:25|49ers|Giants","13|Sun|20:20|Raiders|Chiefs","13|Mon|20:15|Cowboys|Seahawks",
+      "14|Thu|20:15|Steelers|Jaguars","14|Sun|13:00|Vikings|Patriots","14|Sun|13:00|Bears|Dolphins","14|Sun|13:00|Broncos|Jets","14|Sun|13:00|Colts|Eagles","14|Sun|13:00|Buccaneers|Ravens","14|Sun|13:00|Falcons|Browns","14|Sun|13:00|Texans|Commanders","14|Sun|13:00|Panthers|Saints","14|Sun|16:05|Giants|Seahawks","14|Sun|16:25|Rams|Lions","14|Sun|16:25|Chargers|49ers","14|Sun|20:20|Chiefs|Raiders",
+      "15|Sat|16:30|Bears|Bills","15|Sat|20:20|Jets|Lions","15|Sun|13:00|Seahawks|Eagles","15|Sun|13:00|Ravens|Steelers","15|Sun|13:00|Bengals|Browns","15|Sun|13:00|Titans|Jaguars","15|Sun|13:00|Texans|Colts","15|Sun|13:00|Falcons|Panthers","15|Sun|13:00|Saints|Buccaneers","15|Sun|13:00|Packers|Vikings","15|Sun|16:05|Cardinals|49ers","15|Sun|16:25|Commanders|Cowboys","15|Sun|16:25|Giants|Rams","15|Sun|16:25|Chargers|Broncos","15|Sun|16:25|Raiders|Dolphins","15|Mon|20:15|Patriots|Chiefs",
+      "16|Thu|20:15|Texans|Eagles","16|Fri|13:00|Packers|Bears","16|Sun|13:00|Patriots|Jets","16|Sun|13:00|Dolphins|Bills","16|Sun|13:00|Steelers|Bengals","16|Sun|13:00|Browns|Ravens","16|Sun|13:00|Jaguars|Colts","16|Sun|13:00|Panthers|Falcons","16|Sun|13:00|Buccaneers|Saints","16|Sun|13:00|Lions|Vikings","16|Sun|16:05|Giants|Commanders","16|Sun|16:25|Bills|Broncos","16|Sun|16:25|49ers|Rams","16|Sun|16:25|Seahawks|Cardinals","16|Sun|20:20|Chiefs|Chargers","16|Mon|20:15|Cowboys|Raiders",
+      "17|Sun|13:00|Bills|Dolphins","17|Sun|13:00|Vikings|Jets","17|Sun|13:00|Bengals|Steelers","17|Sun|13:00|Ravens|Browns","17|Sun|13:00|Colts|Jaguars","17|Sun|13:00|Titans|Texans","17|Sun|13:00|Falcons|Buccaneers","17|Sun|13:00|Saints|Panthers","17|Sun|13:00|Bears|Lions","17|Sun|13:00|Commanders|Packers","17|Sun|16:05|Cardinals|Rams","17|Sun|16:25|Eagles|49ers","17|Sun|16:25|Giants|Cowboys","17|Sun|16:25|Chargers|Chiefs","17|Sun|16:25|Raiders|Broncos","17|Sun|20:20|Patriots|Seahawks",
+      "18|Sun|13:00|Jets|Bills","18|Sun|13:00|Dolphins|Patriots","18|Sun|13:00|Steelers|Ravens","18|Sun|13:00|Browns|Bengals","18|Sun|13:00|Jaguars|Texans","18|Sun|13:00|Colts|Titans","18|Sun|13:00|Panthers|Falcons","18|Sun|18:00|Buccaneers|Saints","18|Sun|13:00|Lions|Packers","18|Sun|13:00|Bears|Vikings","18|Sun|16:25|Eagles|Giants","18|Sun|16:25|Cowboys|Commanders","18|Sun|16:25|Rams|Cardinals","18|Sun|16:25|Seahawks|49ers","18|Sun|16:25|Broncos|Chiefs","18|Sun|16:25|Chargers|Raiders"
+    ];
+
+    const SCHEDULE_DATA = RAW_SCHEDULE.map((str, idx) => {
+      const [w, day, time, away, home] = str.split('|');
+      return { id: `g2026_${idx + 1}`, week: parseInt(w), day, time, away, home };
+    });
+
+    let userPicks = JSON.parse(localStorage.getItem('nfl_picks_ghpages')) || {};
+    let playoffPicks = JSON.parse(localStorage.getItem('nfl_playoffs_ghpages')) || {};
+    let activeDiv = "NFC East";
+    let activeTeam = "Eagles";
+
+    function saveState() {
+      localStorage.setItem('nfl_picks_ghpages', JSON.stringify(userPicks));
+      localStorage.setItem('nfl_playoffs_ghpages', JSON.stringify(playoffPicks));
+    }
+
+    function resetAllData() {
+      if (confirm("Reset all picks?")) {
+        userPicks = {}; playoffPicks = {};
+        saveState();
+        renderSchedules(); renderStandings(); renderPlayoffs();
+      }
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.nav-btn').forEach(el => el.classList.remove('active'));
+      document.getElementById(`tab-${tabName}`).classList.add('active');
+      event.target.classList.add('active');
+      if (tabName === 'standings') renderStandings();
+      if (tabName === 'playoffs') renderPlayoffs();
+    }
+
+    function initSchedulesNav() {
+      const divNav = document.getElementById('div-nav');
+      divNav.innerHTML = '';
+      Object.keys(DIVISIONS).forEach(div => {
+        const btn = document.createElement('button');
+        btn.className = `div-btn ${div === activeDiv ? 'active' : ''}`;
+        btn.innerText = div;
+        btn.onclick = () => {
+          activeDiv = div; activeTeam = DIVISIONS[div][0];
+          initSchedulesNav(); renderTeamNav(); renderSchedules();
+        };
+        divNav.appendChild(btn);
+      });
+      renderTeamNav();
+    }
+
+    function renderTeamNav() {
+      const teamNav = document.getElementById('team-nav');
+      teamNav.innerHTML = '';
+      DIVISIONS[activeDiv].forEach(team => {
+        const btn = document.createElement('button');
+        btn.className = `team-btn-nav ${team === activeTeam ? 'active' : ''}`;
+        btn.innerText = team;
+        btn.onclick = () => { activeTeam = team; renderTeamNav(); renderSchedules(); };
+        teamNav.appendChild(btn);
+      });
+    }
+
+    function renderSchedules() {
+      const list = document.getElementById('schedule-list');
+      list.innerHTML = '';
+      const teamGames = SCHEDULE_DATA.filter(g => g.away === activeTeam || g.home === activeTeam);
+
+      for (let w = 1; w <= 18; w++) {
+        const game = teamGames.find(g => g.week === w);
+        const card = document.createElement('div');
+        card.className = 'game-card';
+
+        if (!game) {
+          card.innerHTML = `<div class="game-header"><span>WEEK ${w}</span><span>BYE WEEK</span></div><div style="font-size:0.85rem; color:var(--text-muted); text-align:center;">No game scheduled</div>`;
+        } else {
+          const pickedWinner = userPicks[game.id];
+          card.innerHTML = `
+            <div class="game-header">
+              <span>WEEK ${game.week} • ${game.day} ${game.time} ET</span>
+              <span>${game.away === activeTeam ? 'AWAY' : 'HOME'}</span>
+            </div>
+            <div class="game-matchup">
+              <button class="pick-btn ${pickedWinner === game.away ? 'selected-win' : (pickedWinner ? 'selected-loss' : '')}" 
+                      onclick="makePick('${game.id}', '${game.away}')">
+                ${game.away}
+              </button>
+              <span class="vs-text">@</span>
+              <button class="pick-btn ${pickedWinner === game.home ? 'selected-win' : (pickedWinner ? 'selected-loss' : '')}" 
+                      onclick="makePick('${game.id}', '${game.home}')">
+                ${game.home}
+              </button>
+            </div>
+          `;
+        }
+        list.appendChild(card);
+      }
+    }
+
+    function makePick(gameId, winner) {
+      if (userPicks[gameId] === winner) { delete userPicks[gameId]; } 
+      else { userPicks[gameId] = winner; }
+      saveState(); renderSchedules();
+    }
+
+    function calculateStandings() {
+      const stats = {};
+      Object.keys(TEAMS).forEach(t => { stats[t] = { name: t, w: 0, l: 0, divW: 0, divL: 0, confW: 0, confL: 0 }; });
+      
+      SCHEDULE_DATA.forEach(g => {
+        const winner = userPicks[g.id];
+        if (!winner) return;
+        const loser = winner === g.home ? g.away : g.home;
+        stats[winner].w += 1; stats[loser].l += 1;
+        if (TEAMS[winner].div === TEAMS[loser].div) { stats[winner].divW += 1; stats[loser].divL += 1; }
+        if (TEAMS[winner].conf === TEAMS[loser].conf) { stats[winner].confW += 1; stats[loser].confL += 1; }
+      });
+      return stats;
+    }
+
+    function getSortedDivisions() {
+      const stats = calculateStandings();
+      const divRankings = {};
+      Object.keys(DIVISIONS).forEach(div => {
+        let teams = [...DIVISIONS[div]];
+        teams.sort((a, b) => (stats[b].w - stats[a].w) || (stats[b].divW - stats[a].divW) || (stats[b].confW - stats[a].confW));
+        divRankings[div] = teams.map(t => stats[t]);
+      });
+      return divRankings;
+    }
+
+    function renderStandings() {
+      const container = document.getElementById('standings-container');
+      container.innerHTML = '';
+      const divRankings = getSortedDivisions();
+
+      Object.keys(divRankings).forEach(div => {
+        const sec = document.createElement('div');
+        sec.className = 'standings-sec';
+        let rowsHTML = divRankings[div].map(t => {
+          const total = t.w + t.l;
+          const pct = total === 0 ? '.000' : (t.w / total).toFixed(3).replace('0.', '.');
+          return `<tr><td><strong>${t.name}</strong></td><td>${t.w}</td><td>${t.l}</td><td>${pct}</td><td>${t.divW}-${t.divL}</td><td>${t.confW}-${t.confL}</td></tr>`;
+        }).join('');
+
+        sec.innerHTML = `<div class="standings-title">${div}</div><table class="standings-table"><thead><tr><th>TEAM</th><th>W</th><th>L</th><th>PCT</th><th>DIV</th><th>CONF</th></tr></thead><tbody>${rowsHTML}</tbody></table>`;
+        container.appendChild(sec);
+      });
+    }
+
+    function getConferenceSeeds(conf) {
+      const divRankings = getSortedDivisions();
+      let divWinners = [], wildcards = [];
+      Object.keys(divRankings).forEach(div => {
+        if (div.startsWith(conf)) {
+          divWinners.push(divRankings[div][0]);
+          wildcards.push(...divRankings[div].slice(1));
+        }
+      });
+      divWinners.sort((a, b) => b.w - a.w);
+      wildcards.sort((a, b) => b.w - a.w);
+      return [...divWinners, ...wildcards.slice(0, 3)];
+    }
+
+    function renderPlayoffs() {
+      const container = document.getElementById('playoffs-container');
+      container.innerHTML = '';
+      container.appendChild(renderConfBracket("AFC", getConferenceSeeds("AFC")));
+      container.appendChild(renderConfBracket("NFC", getConferenceSeeds("NFC")));
+    }
+
+    function renderConfBracket(conf, seeds) {
+      const sec = document.createElement('div');
+      sec.className = 'bracket-sec';
+      sec.innerHTML = `
+        <div class="bracket-title">${conf} Playoff Bracket</div>
+        <div style="font-size:0.75rem; color:var(--text-muted); margin-bottom:8px;">WILD CARD ROUND (#1 Seed Bye)</div>
+        <div class="matchup-box">${renderPlayoffTeamBtn(`${conf}_WC1`, seeds[1]?.name, 2)}${renderPlayoffTeamBtn(`${conf}_WC1`, seeds[6]?.name, 7)}</div>
+        <div class="matchup-box">${renderPlayoffTeamBtn(`${conf}_WC2`, seeds[2]?.name, 3)}${renderPlayoffTeamBtn(`${conf}_WC2`, seeds[5]?.name, 6)}</div>
+        <div class="matchup-box">${renderPlayoffTeamBtn(`${conf}_WC3`, seeds[3]?.name, 4)}${renderPlayoffTeamBtn(`${conf}_WC3`, seeds[4]?.name, 5)}</div>
+      `;
+      return sec;
+    }
+
+    function renderPlayoffTeamBtn(matchKey, teamName, seed) {
+      if (!teamName) return `<div style="padding:6px; color:#64748b;">TBD</div>`;
+      const isPicked = playoffPicks[matchKey] === teamName;
+      return `<button class="pick-btn ${isPicked ? 'selected-win' : ''}" onclick="pickPlayoff('${matchKey}', '${teamName}')"><span style="color:var(--accent-gold)">#${seed}</span> ${teamName}</button>`;
+    }
+
+    function pickPlayoff(matchKey, teamName) {
+      if (playoffPicks[matchKey] === teamName) { delete playoffPicks[matchKey]; } 
+      else { playoffPicks[matchKey] = teamName; }
+      saveState(); renderPlayoffs();
+    }
+
+    initSchedulesNav();
+    renderSchedules();
+  </script>
+</body>
+</html>
