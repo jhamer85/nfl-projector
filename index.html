@@ -12,7 +12,6 @@
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
       --accent-blue: #2563eb;
-      --accent-green: #16a34a;
       --accent-red: #dc2626;
       --accent-gold: #eab308;
     }
@@ -29,17 +28,24 @@
     .tab-content { display: none; padding: 12px; max-width: 650px; margin: 0 auto; }
     .tab-content.active { display: block; }
 
-    .division-grid, .teams-sub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    /* Forced 2-column grid: AFC on Left, NFC on Right */
+    .division-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    .teams-sub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+    
     .div-btn, .team-btn-nav { background-color: var(--card-bg); border: 1px solid var(--card-border); color: var(--text-main); padding: 10px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; }
     .div-btn.active, .team-btn-nav.active { background-color: var(--accent-blue); border-color: #60a5fa; }
+
+    .save-controls-bar { display: flex; gap: 8px; margin-bottom: 12px; }
+    .action-btn { flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--card-border); background-color: var(--card-bg); color: var(--text-main); font-weight: 600; font-size: 0.8rem; cursor: pointer; text-align: center; }
+    .action-btn.save-btn { border-color: var(--accent-gold); color: var(--accent-gold); }
+    .save-status-text { text-align: center; font-size: 0.75rem; color: #4ade80; margin-bottom: 10px; min-height: 16px; }
 
     .game-card { background-color: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
     .game-header { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 4px; }
     .game-matchup { display: flex; align-items: center; gap: 8px; }
 
-    .pick-btn { flex: 1; padding: 10px 6px; border-radius: 6px; border: 1px solid var(--card-border); background-color: #0f172a; color: var(--text-main); font-weight: 600; font-size: 0.85rem; cursor: pointer; margin-top: 4px; margin-bottom: 4px; display: block; width: 100%; text-align: center; }
-    .pick-btn.selected-win { background-color: var(--accent-green); border-color: #4ade80; color: #ffffff; }
-    .pick-btn.selected-loss { background-color: #334155; color: #94a3b8; opacity: 0.5; }
+    .pick-btn { flex: 1; padding: 10px 6px; border-radius: 6px; border: 1px solid var(--card-border); background-color: #0f172a; color: var(--text-main); font-weight: 600; font-size: 0.85rem; cursor: pointer; margin-top: 4px; margin-bottom: 4px; display: block; width: 100%; text-align: center; transition: background-color 0.2s, color 0.2s; }
+    .pick-btn.selected-loss { background-color: #334155; color: #94a3b8; opacity: 0.4; }
     .vs-text { font-size: 0.75rem; color: var(--text-muted); font-weight: bold; }
 
     .standings-sec { margin-bottom: 20px; }
@@ -64,6 +70,13 @@
   <div id="tab-schedules" class="tab-content active">
     <div class="division-grid" id="div-nav"></div>
     <div class="teams-sub-grid" id="team-nav"></div>
+    
+    <div class="save-controls-bar">
+      <button class="action-btn save-btn" onclick="explicitSavePicks()">💾 Save Picks to Device</button>
+      <button class="action-btn" onclick="explicitLoadPicks()">🔄 Reload Saved Picks</button>
+    </div>
+    <div class="save-status-text" id="save-status"></div>
+
     <div id="schedule-list"></div>
   </div>
 
@@ -83,15 +96,66 @@
   </nav>
 
   <script>
+    // Explicit division list ordered Left Column (AFC) to Right Column (NFC)
+    const DIVISION_ORDER = [
+      "AFC North", "NFC North",
+      "AFC East",  "NFC East",
+      "AFC West",  "NFC West",
+      "AFC South", "NFC South"
+    ];
+
     const DIVISIONS = {
-      "NFC East": ["Eagles", "Commanders", "Cowboys", "Giants"],
-      "NFC North": ["Lions", "Packers", "Bears", "Vikings"],
-      "NFC South": ["Falcons", "Buccaneers", "Saints", "Panthers"],
-      "NFC West": ["49ers", "Rams", "Seahawks", "Cardinals"],
-      "AFC East": ["Bills", "Dolphins", "Patriots", "Jets"],
       "AFC North": ["Ravens", "Bengals", "Browns", "Steelers"],
+      "NFC North": ["Lions", "Packers", "Bears", "Vikings"],
+      "AFC East":  ["Bills", "Dolphins", "Patriots", "Jets"],
+      "NFC East":  ["Eagles", "Commanders", "Cowboys", "Giants"],
+      "AFC West":  ["Chiefs", "Chargers", "Broncos", "Raiders"],
+      "NFC West":  ["49ers", "Rams", "Seahawks", "Cardinals"],
       "AFC South": ["Texans", "Jaguars", "Colts", "Titans"],
-      "AFC West": ["Chiefs", "Chargers", "Broncos", "Raiders"]
+      "NFC South": ["Falcons", "Buccaneers", "Saints", "Panthers"]
+    };
+
+    // Primary Brand Colors & Text Colors
+    const TEAM_COLORS = {
+      "Eagles":     { bg: "#004C54", text: "#FFFFFF" }, // Midnight Green
+      "Commanders": { bg: "#5A1414", text: "#FFB612" }, // Burgundy
+      "Cowboys":    { bg: "#003594", text: "#FFFFFF" }, // Navy Blue
+      "Giants":     { bg: "#0B2265", text: "#FFFFFF" }, // Blue
+      
+      "Lions":      { bg: "#0076B6", text: "#FFFFFF" }, // Honolulu Blue
+      "Packers":    { bg: "#203731", text: "#FFB612" }, // Dark Green
+      "Bears":      { bg: "#0B162A", text: "#C83803" }, // Navy/Orange
+      "Vikings":    { bg: "#4F2683", text: "#FFC62F" }, // Purple
+      
+      "Falcons":    { bg: "#A71930", text: "#FFFFFF" }, // Red
+      "Buccaneers": { bg: "#D50A0A", text: "#FFFFFF" }, // Red
+      "Saints":     { bg: "#D3BC8D", text: "#101820" }, // Gold
+      "Panthers":   { bg: "#0085CA", text: "#FFFFFF" }, // Process Blue
+      
+      "49ers":      { bg: "#AA0000", text: "#B3995D" }, // Red/Gold
+      "Rams":       { bg: "#003594", text: "#FFA300" }, // Royal Blue
+      "Seahawks":   { bg: "#002244", text: "#69BE28" }, // Navy/Action Green
+      "Cardinals":  { bg: "#97233F", text: "#FFFFFF" }, // Cardinal Red
+      
+      "Bills":      { bg: "#00338D", text: "#C60C30" }, // Royal Blue
+      "Dolphins":   { bg: "#008E97", text: "#FC4C02" }, // Aqua
+      "Patriots":   { bg: "#002244", text: "#C60C30" }, // Nautical Blue
+      "Jets":       { bg: "#125740", text: "#FFFFFF" }, // Gotham Green
+      
+      "Ravens":     { bg: "#241773", text: "#FFFFFF" }, // Purple
+      "Bengals":    { bg: "#FB4F14", text: "#000000" }, // Orange
+      "Browns":     { bg: "#311D00", text: "#FF3C00" }, // Brown/Orange
+      "Steelers":   { bg: "#101820", text: "#FFB81C" }, // Black/Gold
+      
+      "Texans":     { bg: "#03202F", text: "#A71930" }, // Deep Steel Blue
+      "Jaguars":    { bg: "#006778", text: "#D7A22A" }, // Teal
+      "Colts":      { bg: "#002C5F", text: "#FFFFFF" }, // Speed Blue
+      "Titans":     { bg: "#0C2340", text: "#4B92DB" }, // Navy/Titans Blue
+      
+      "Chiefs":     { bg: "#E31837", text: "#FFB81C" }, // Red/Gold
+      "Chargers":   { bg: "#0080C6", text: "#FFC20E" }, // Powder Blue
+      "Broncos":    { bg: "#FB4F14", text: "#002244" }, // Orange
+      "Raiders":    { bg: "#000000", text: "#A5ACAF" }  // Black/Silver
     };
 
     const TEAMS = {};
@@ -101,39 +165,59 @@
     });
 
     const RAW_SCHEDULE = [
-      "1|Wed|20:20|Patriots|Seahawks","1|Thu|20:35|49ers|Rams","1|Sun|13:00|Bears|Panthers","1|Sun|13:00|Buccaneers|Bengals","1|Sun|13:00|Ravens|Colts","1|Sun|13:00|Saints|Lions","1|Sun|13:00|Bills|Texans","1|Sun|13:00|Browns|Jaguars","1|Sun|13:00|Jets|Titans","1|Sun|13:00|Falcons|Steelers","1|Sun|16:25|Cardinals|Chargers","1|Sun|16:25|Packers|Vikings","1|Sun|16:25|Dolphins|Raiders","1|Sun|16:25|Commanders|Eagles","1|Sun|20:20|Cowboys|Giants","1|Mon|20:15|Broncos|Chiefs",
-      "2|Thu|20:15|Lions|Bills","2|Sun|13:00|Panthers|Falcons","2|Sun|13:00|Saints|Ravens","2|Sun|13:00|Vikings|Bears","2|Sun|13:00|Bengals|Texans","2|Sun|13:00|Steelers|Patriots","2|Sun|13:00|Packers|Jets","2|Sun|13:00|Browns|Buccaneers","2|Sun|13:00|Eagles|Titans","2|Sun|16:05|Jaguars|Broncos","2|Sun|16:05|Raiders|Chargers","2|Sun|16:25|Seahawks|Cardinals","2|Sun|16:25|Commanders|Cowboys","2|Sun|16:25|Dolphins|49ers","2|Sun|20:20|Colts|Chiefs","2|Mon|20:15|Giants|Rams",
-      "3|Thu|20:15|Falcons|Packers","3|Sun|13:00|Chargers|Bills","3|Sun|13:00|Chiefs|Dolphins","3|Sun|13:00|Patriots|Jaguars","3|Sun|13:00|Jets|Lions","3|Sun|13:00|Titans|Giants","3|Sun|13:00|Bengals|Steelers","3|Sun|13:00|Seahawks|Commanders","3|Sun|13:00|Panthers|Browns","3|Sun|13:00|Rams|Buccaneers","3|Sun|13:00|Vikings|Saints","3|Sun|16:05|Cardinals|49ers","3|Sun|16:25|Ravens|Cowboys","3|Sun|16:25|Broncos|Raiders","3|Sun|20:20|Texans|Colts","3|Mon|20:15|Eagles|Bears",
-      "4|Thu|20:15|Steelers|Browns","4|Sun|09:30|Colts|Commanders","4|Sun|13:00|Titans|Ravens","4|Sun|13:00|Patriots|Bills","4|Sun|13:00|Jets|Bears","4|Sun|13:00|Jaguars|Bengals","4|Sun|13:00|Dolphins|Vikings","4|Sun|13:00|Rams|Eagles","4|Sun|13:00|Cowboys|Texans","4|Sun|13:00|Commanders|Falcons","4|Sun|13:00|Panthers|Saints","4|Sun|13:00|Lions|Panthers","4|Sun|16:05|Cardinals|Giants","4|Sun|16:25|Chiefs|49ers","4|Sun|16:25|Packers|Chargers","4|Mon|20:15|Falcons|Saints",
-      "5|Thu|20:15|Buccaneers|Cowboys","5|Sun|09:30|Eagles|Jaguars","5|Sun|13:00|Bengals|Dolphins","5|Sun|13:00|Raiders|Patriots","5|Sun|13:00|Vikings|Saints","5|Sun|13:00|Browns|Jets","5|Sun|13:00|Colts|Steelers","5|Sun|13:00|Texans|Titans","5|Sun|13:00|Giants|Commanders","5|Sun|16:05|Broncos|Chargers","5|Sun|16:25|Lions|Cardinals","5|Sun|16:25|Bears|Packers","5|Sun|16:25|49ers|Seahawks",
-      "6|Sun|09:30|Texans|Jaguars","6|Sun|13:00|Bears|Falcons","6|Sun|13:00|Ravens|Browns","6|Sun|13:00|Titans|Colts","6|Sun|13:00|Jets|Patriots","6|Sun|13:00|Saints|Giants","6|Sun|13:00|Panthers|Eagles","6|Sun|13:00|Steelers|Buccaneers","6|Sun|16:05|Cardinals|Rams","6|Sun|16:25|Chargers|Chiefs","6|Sun|16:25|Bills|Raiders","6|Mon|20:15|Commanders|49ers",
-      "7|Thu|20:15|Patriots|Bears","7|Sun|09:30|Steelers|Saints","7|Sun|13:00|Dolphins|Jets","7|Sun|13:00|Bengals|Ravens","7|Sun|13:00|Browns|Colts","7|Sun|13:00|Jaguars|Texans","7|Sun|13:00|Titans|Panthers","7|Sun|13:00|Lions|Falcons","7|Sun|16:05|Rams|Seahawks","7|Sun|16:25|Packers|Vikings","7|Sun|16:25|Buccaneers|Cardinals","7|Sun|16:25|Chiefs|Broncos","7|Sun|20:20|Chargers|Raiders","7|Mon|20:15|Cowboys|Eagles",
-      "8|Sun|13:00|Patriots|Dolphins","8|Sun|13:00|Raiders|Jets","8|Sun|13:00|Ravens|Bills","8|Sun|13:00|Eagles|Commanders","8|Sun|13:00|Steelers|Browns","8|Sun|13:00|Cardinals|Cowboys","8|Sun|13:00|Colts|Texans","8|Sun|13:00|Jaguars|Titans","8|Sun|13:00|Panthers|Buccaneers","8|Sun|13:00|Saints|Falcons","8|Sun|16:25|Lions|Packers","8|Sun|16:25|Rams|49ers","8|Sun|20:20|Chargers|Chiefs","8|Mon|20:15|Bears|Seahawks",
-      "9|Thu|20:15|Jaguars|Ravens","9|Sun|09:30|Bengals|Falcons","9|Sun|13:00|Packers|Patriots","9|Sun|13:00|Giants|Eagles","9|Sun|13:00|Bills|Jets","9|Sun|13:00|Dolphins|Lions","9|Sun|13:00|Cowboys|Colts","9|Sun|13:00|Buccaneers|Bears","9|Sun|13:00|Rams|Commanders","9|Sun|16:05|49ers|Cardinals","9|Sun|16:25|Seahawks|Chiefs","9|Sun|20:20|Broncos|Chargers",
-      "10|Sun|09:30|Patriots|Lions","10|Sun|13:00|Bills|Jets","10|Sun|13:00|Dolphins|Colts","10|Sun|13:00|Steelers|Bengals","10|Thu|20:15|Commanders|Giants","10|Sun|13:00|Texans|Browns","10|Sun|13:00|Falcons|Buccaneers","10|Sun|16:05|Cardinals|Rams","10|Sun|16:25|49ers|Cowboys","10|Sun|16:25|Raiders|Broncos","10|Mon|20:15|Chargers|Ravens",
-      "11|Sun|13:00|Dolphins|Bills","11|Sun|13:00|Jets|Chargers","11|Sun|13:00|Steelers|Eagles","11|Sun|13:00|Jaguars|Giants","11|Sun|13:00|Ravens|Panthers","11|Sun|13:00|Browns|Titans","11|Sun|13:00|Colts|Texans","11|Sun|13:00|Panthers|Falcons","11|Sun|13:00|Saints|Bears","11|Sun|13:00|Packers|Lions","11|Sun|16:05|Commanders|Bengals","11|Sun|16:25|Rams|49ers","11|Sun|16:25|Seahawks|Chiefs","11|Sun|20:20|Titans|Cowboys","11|Mon|20:15|Vikings|49ers",
-      "12|Thu|13:00|Bears|Lions","12|Thu|16:30|Eagles|Cowboys","12|Thu|20:20|Chiefs|Bills","12|Fri|15:00|Broncos|Steelers","12|Sun|13:00|Jets|Dolphins","12|Sun|13:00|Patriots|Bengals","12|Sun|13:00|Ravens|Texans","12|Sun|13:00|Raiders|Browns","12|Sun|13:00|Giants|Colts","12|Sun|13:00|Commanders|Cardinals","12|Sun|13:00|Falcons|Vikings","12|Sun|16:25|49ers|Rams","12|Sun|16:25|Chargers|Seahawks","12|Sun|20:20|Buccaneers|Saints",
-      "13|Sun|13:00|Bills|Patriots","13|Sun|13:00|Dolphins|Jets","13|Sun|13:00|Bengals|Browns","13|Sun|13:00|Texans|Steelers","13|Sun|13:00|Jaguars|Bears","13|Sun|13:00|Commanders|Titans","13|Sun|13:00|Lions|Falcons","13|Sun|13:00|Saints|Panthers","13|Sun|16:05|Eagles|Cardinals","13|Sun|16:25|49ers|Giants","13|Sun|20:20|Raiders|Chiefs","13|Mon|20:15|Cowboys|Seahawks",
-      "14|Thu|20:15|Steelers|Jaguars","14|Sun|13:00|Vikings|Patriots","14|Sun|13:00|Bears|Dolphins","14|Sun|13:00|Broncos|Jets","14|Sun|13:00|Colts|Eagles","14|Sun|13:00|Buccaneers|Ravens","14|Sun|13:00|Falcons|Browns","14|Sun|13:00|Texans|Commanders","14|Sun|13:00|Panthers|Saints","14|Sun|16:05|Giants|Seahawks","14|Sun|16:25|Rams|Lions","14|Sun|16:25|Chargers|49ers","14|Sun|20:20|Chiefs|Raiders",
-      "15|Sat|16:30|Bears|Bills","15|Sat|20:20|Jets|Lions","15|Sun|13:00|Seahawks|Eagles","15|Sun|13:00|Ravens|Steelers","15|Sun|13:00|Bengals|Browns","15|Sun|13:00|Titans|Jaguars","15|Sun|13:00|Texans|Colts","15|Sun|13:00|Falcons|Panthers","15|Sun|13:00|Saints|Buccaneers","15|Sun|13:00|Packers|Vikings","15|Sun|16:05|Cardinals|49ers","15|Sun|16:25|Commanders|Cowboys","15|Sun|16:25|Giants|Rams","15|Sun|16:25|Chargers|Broncos","15|Sun|16:25|Raiders|Dolphins","15|Mon|20:15|Patriots|Chiefs",
-      "16|Thu|20:15|Texans|Eagles","16|Fri|13:00|Packers|Bears","16|Sun|13:00|Patriots|Jets","16|Sun|13:00|Dolphins|Bills","16|Sun|13:00|Steelers|Bengals","16|Sun|13:00|Browns|Ravens","16|Sun|13:00|Jaguars|Colts","16|Sun|13:00|Panthers|Falcons","16|Sun|13:00|Buccaneers|Saints","16|Sun|13:00|Lions|Vikings","16|Sun|16:05|Giants|Commanders","16|Sun|16:25|Bills|Broncos","16|Sun|16:25|49ers|Rams","16|Sun|16:25|Seahawks|Cardinals","16|Sun|20:20|Chiefs|Chargers","16|Mon|20:15|Cowboys|Raiders",
-      "17|Sun|13:00|Bills|Dolphins","17|Sun|13:00|Vikings|Jets","17|Sun|13:00|Bengals|Steelers","17|Sun|13:00|Ravens|Browns","17|Sun|13:00|Colts|Jaguars","17|Sun|13:00|Titans|Texans","17|Sun|13:00|Falcons|Buccaneers","17|Sun|13:00|Saints|Panthers","17|Sun|13:00|Bears|Lions","17|Sun|13:00|Commanders|Packers","17|Sun|16:05|Cardinals|Rams","17|Sun|16:25|Eagles|49ers","17|Sun|16:25|Giants|Cowboys","17|Sun|16:25|Chargers|Chiefs","17|Sun|16:25|Raiders|Broncos","17|Sun|20:20|Patriots|Seahawks",
-      "18|Sun|13:00|Jets|Bills","18|Sun|13:00|Dolphins|Patriots","18|Sun|13:00|Steelers|Ravens","18|Sun|13:00|Browns|Bengals","18|Sun|13:00|Jaguars|Texans","18|Sun|13:00|Colts|Titans","18|Sun|13:00|Panthers|Falcons","18|Sun|18:00|Buccaneers|Saints","18|Sun|13:00|Lions|Packers","18|Sun|13:00|Bears|Vikings","18|Sun|16:25|Eagles|Giants","18|Sun|16:25|Cowboys|Commanders","18|Sun|16:25|Rams|Cardinals","18|Sun|16:25|Seahawks|49ers","18|Sun|16:25|Broncos|Chiefs","18|Sun|16:25|Chargers|Raiders"
+      "1|Thu|20:20|Chiefs|Ravens","1|Fri|20:15|Packers|Eagles","1|Sun|13:00|Panthers|Saints","1|Sun|13:00|Vikings|Giants","1|Sun|13:00|Patriots|Bengals","1|Sun|13:00|Steelers|Falcons","1|Sun|13:00|Texans|Colts","1|Sun|13:00|Cardinals|Bills","1|Sun|13:00|Titans|Bears","1|Sun|13:00|Jaguars|Dolphins","1|Sun|16:05|Broncos|Seahawks","1|Sun|16:25|Raiders|Chargers","1|Sun|16:25|Cowboys|Browns","1|Sun|16:25|Commanders|Buccaneers","1|Sun|20:20|Rams|Lions","1|Mon|20:15|Jets|49ers",
+      "2|Thu|20:15|Bills|Dolphins","2|Sun|13:00|Raiders|Ravens","2|Sun|13:00|Chargers|Panthers","2|Sun|13:00|Saints|Cowboys","2|Sun|13:00|Buccaneers|Lions","2|Sun|13:00|Colts|Packers","2|Sun|13:00|Browns|Jaguars","2|Sun|13:00|49ers|Vikings","2|Sun|13:00|Seahawks|Patriots","2|Sun|13:00|Giants|Commanders","2|Sun|16:05|Rams|Cardinals","2|Sun|16:25|Bengals|Chiefs","2|Sun|16:25|Steelers|Broncos","2|Sun|20:20|Bears|Texans","2|Mon|20:15|Falcons|Eagles",
+      "3|Thu|20:15|Patriots|Jets","3|Sun|13:00|Giants|Browns","3|Sun|13:00|Bears|Colts","3|Sun|13:00|Texans|Vikings","3|Sun|13:00|Eagles|Saints","3|Sun|13:00|Chargers|Steelers","3|Sun|13:00|Broncos|Buccaneers","3|Sun|13:00|Packers|Titans","3|Sun|13:00|Falcons|Panthers","3|Sun|16:05|Dolphins|Seahawks","3|Sun|16:05|Panthers|Raiders","3|Sun|16:25|Lions|Cardinals","3|Sun|16:25|Ravens|Cowboys","3|Sun|16:25|49ers|Rams","3|Sun|20:20|Chiefs|Falcons","3|Mon|20:15|Jaguars|Bills",
+      "4|Thu|20:15|Cowboys|Giants","4|Sun|13:00|Saints|Falcons","4|Sun|13:00|Bengals|Panthers","4|Sun|13:00|Rams|Bears","4|Sun|13:00|Vikings|Packers","4|Sun|13:00|Jaguars|Texans","4|Sun|13:00|Steelers|Colts","4|Sun|13:00|Broncos|Jets","4|Sun|13:00|Eagles|Buccaneers","4|Sun|16:05|Commanders|Cardinals","4|Sun|16:05|Patriots|49ers","4|Sun|16:25|Chiefs|Chargers","4|Sun|16:25|Browns|Raiders","4|Sun|20:20|Bills|Ravens","4|Mon|19:30|Titans|Dolphins","4|Mon|21:00|Seahawks|Lions",
+      "5|Thu|20:15|Buccaneers|Falcons","5|Sun|09:30|Jets|Vikings","5|Sun|13:00|Panthers|Bears","5|Sun|13:00|Ravens|Bengals","5|Sun|13:00|Bills|Texans","5|Sun|13:00|Colts|Jaguars","5|Sun|13:00|Dolphins|Patriots","5|Sun|13:00|Browns|Commanders","5|Sun|16:05|Raiders|Broncos","5|Sun|16:25|Cardinals|49ers","5|Sun|16:25|Packers|Rams","5|Sun|20:20|Cowboys|Steelers","5|Mon|20:15|Saints|Chiefs",
+      "6|Thu|20:15|49ers|Seahawks","6|Sun|09:30|Jaguars|Bears","6|Sun|13:00|Commanders|Ravens","6|Sun|13:00|Cardinals|Packers","6|Sun|13:00|Texans|Patriots","6|Sun|13:00|Buccaneers|Saints","6|Sun|13:00|Browns|Eagles","6|Sun|13:00|Colts|Titans","6|Sun|16:05|Chargers|Broncos","6|Sun|16:25|Lions|Cowboys","6|Sun|16:25|Falcons|Panthers","6|Sun|20:20|Bengals|Giants","6|Mon|20:15|Bills|Jets",
+      "7|Thu|20:15|Broncos|Saints","7|Sun|09:30|Patriots|Jaguars","7|Sun|13:00|Seahawks|Falcons","7|Sun|13:00|Titans|Bills","7|Sun|13:00|Bengals|Browns","7|Sun|13:00|Texans|Packers","7|Sun|13:00|Dolphins|Colts","7|Sun|13:00|Lions|Vikings","7|Sun|13:00|Eagles|Giants","7|Sun|16:05|Raiders|Rams","7|Sun|16:05|Panthers|Commanders","7|Sun|16:25|Chiefs|49ers","7|Sun|20:20|Jets|Steelers","7|Mon|21:00|Ravens|Buccaneers",
+      "8|Thu|20:15|Vikings|Rams","8|Sun|13:00|Ravens|Browns","8|Sun|13:00|Titans|Lions","8|Sun|13:00|Colts|Texans","8|Sun|13:00|Packers|Jaguars","8|Sun|13:00|Cardinals|Dolphins","8|Sun|13:00|Jets|Patriots","8|Sun|13:00|Falcons|Buccaneers","8|Sun|13:00|Bears|Commanders","8|Sun|16:05|Saints|Chargers","8|Sun|16:05|Bills|Seahawks","8|Sun|16:25|Panthers|Broncos","8|Sun|16:25|Chiefs|Raiders","8|Sun|20:20|Cowboys|49ers","8|Mon|20:15|Giants|Steelers",
+      "9|Thu|20:15|Texans|Jets","9|Sun|13:00|Cowboys|Falcons","9|Sun|13:00|Broncos|Ravens","9|Sun|13:00|Dolphins|Bills","9|Sun|13:00|Saints|Panthers","9|Sun|13:00|Raiders|Bengals","9|Sun|13:00|Chargers|Browns","9|Sun|13:00|Commanders|Giants","9|Sun|13:00|Patriots|Titans","9|Sun|16:05|Bears|Cardinals","9|Sun|16:25|Jaguars|Eagles","9|Sun|16:25|Lions|Packers","9|Sun|20:20|Colts|Vikings","9|Mon|20:15|Buccaneers|Chiefs",
+      "10|Thu|20:15|Bengals|Ravens","10|Sun|09:30|Giants|Panthers","10|Sun|13:00|Patriots|Bears","10|Sun|13:00|Bills|Colts","10|Sun|13:00|Vikings|Jaguars","10|Sun|13:00|Broncos|Chiefs","10|Sun|13:00|Falcons|Saints","10|Sun|13:00|49ers|Buccaneers","10|Sun|13:00|Steelers|Commanders","10|Sun|16:05|Titans|Chargers","10|Sun|16:25|Jets|Cardinals","10|Sun|16:25|Eagles|Cowboys","10|Sun|20:20|Lions|Texans","10|Mon|20:15|Dolphins|Rams",
+      "11|Thu|20:15|Commanders|Eagles","11|Sun|13:00|Packers|Bears","11|Sun|13:00|Jaguars|Lions","11|Sun|13:00|Vikings|Titans","11|Sun|13:00|Raiders|Dolphins","11|Sun|13:00|Rams|Patriots","11|Sun|13:00|Browns|Saints","11|Sun|13:00|Ravens|Steelers","11|Sun|16:05|Falcons|Broncos","11|Sun|16:05|Seahawks|49ers","11|Sun|16:25|Chiefs|Bills","11|Sun|20:20|Bengals|Chargers","11|Mon|20:15|Texans|Cowboys",
+      "12|Thu|20:15|Steelers|Browns","12|Sun|13:00|Chiefs|Panthers","12|Sun|13:00|Vikings|Bears","12|Sun|13:00|Titans|Texans","12|Sun|13:00|Lions|Colts","12|Sun|13:00|Patriots|Dolphins","12|Sun|13:00|Buccaneers|Giants","12|Sun|13:00|Cowboys|Commanders","12|Sun|16:05|Broncos|Raiders","12|Sun|16:05|49ers|Packers","12|Sun|16:25|Cardinals|Seahawks","12|Sun|20:20|Eagles|Rams","12|Mon|20:15|Ravens|Chargers",
+      "13|Thu|12:30|Bears|Lions","13|Thu|16:30|Giants|Cowboys","13|Thu|20:20|Dolphins|Packers","13|Fri|15:00|Raiders|Chiefs","13|Sun|13:00|Chargers|Falcons","13|Sun|13:00|Steelers|Bengals","13|Sun|13:00|Texans|Jaguars","13|Sun|13:00|Cardinals|Vikings","13|Sun|13:00|Colts|Patriots","13|Sun|13:00|Seahawks|Jets","13|Sun|13:00|Titans|Commanders","13|Sun|16:05|Buccaneers|Panthers","13|Sun|16:25|Rams|Saints","13|Sun|16:25|Eagles|Ravens","13|Sun|20:20|49ers|Bills","13|Mon|20:15|Browns|Broncos",
+      "14|Thu|20:15|Packers|Lions","14|Sun|13:00|Jets|Dolphins","14|Sun|13:00|Falcons|Vikings","14|Sun|13:00|Saints|Giants","14|Sun|13:00|Panthers|Eagles","14|Sun|13:00|Browns|Steelers","14|Sun|13:00|Raiders|Buccaneers","14|Sun|13:00|Jaguars|Titans","14|Sun|16:05|Seahawks|Cardinals","14|Sun|16:25|Bills|Rams","14|Sun|16:25|Bears|49ers","14|Sun|20:20|Chargers|Chiefs","14|Mon|20:15|Bengals|Cowboys",
+      "15|Thu|20:15|Rams|49ers","15|Sun|13:00|Dallas|Panthers","15|Sun|13:00|Chiefs|Browns","15|Sun|13:00|Dolphins|Texans","15|Sun|13:00|Jets|Jaguars","15|Sun|13:00|Commanders|Saints","15|Sun|13:00|Ravens|Giants","15|Sun|13:00|Bengals|Titans","15|Sun|16:05|Patriots|Cardinals","15|Sun|16:05|Colts|Broncos","15|Sun|16:25|Buffalo|Lions","15|Sun|16:25|Buccaneers|Chargers","15|Sun|20:20|Packers|Seahawks","15|Mon|20:15|Bears|Vikings",
+      "16|Thu|20:15|Broncos|Chargers","16|Sat|13:00|Texans|Chiefs","16|Sat|16:30|Steelers|Ravens","16|Sun|13:00|Giants|Falcons","16|Sun|13:00|Patriots|Bills","16|Sun|13:00|Cardinals|Panthers","16|Sun|13:00|Lions|Bears","16|Sun|13:00|Titans|Colts","16|Sun|13:00|Rams|Jets","16|Sun|13:00|Eagles|Commanders","16|Sun|16:05|Vikings|Seahawks","16|Sun|16:25|Browns|Bengals","16|Sun|16:25|49ers|Dolphins","16|Sun|20:20|Buccaneers|Cowboys","16|Mon|20:15|Saints|Packers",
+      "17|Wed|13:00|Chiefs|Steelers","17|Wed|16:30|Ravens|Texans","17|Thu|20:15|Seahawks|Bears","17|Sat|13:00|Chargers|Patriots","17|Sat|16:30|Broncos|Bengals","17|Sat|20:00|Cardinals|Rams","17|Sun|13:00|Jets|Bills","17|Sun|13:00|Titans|Jaguars","17|Sun|13:00|Packers|Vikings","17|Sun|13:00|Raiders|Saints","17|Sun|13:00|Panthers|Buccaneers","17|Sun|13:00|Cowboys|Eagles","17|Sun|16:25|Lions|49ers","17|Sun|16:25|Falcons|Commanders","17|Sun|20:20|Dolphins|Browns","17|Mon|20:15|Lions|Bears",
+      "18|Sun|13:00|49ers|Cardinals","18|Sun|13:00|Panthers|Falcons","18|Sun|13:00|Ravens|Bengals","18|Sun|13:00|Bears|Packers","18|Sun|13:00|Browns|Ravens","18|Sun|13:00|Cowboys|Commanders","18|Sun|13:00|Chiefs|Broncos","18|Sun|13:00|Texans|Titans","18|Sun|13:00|Jaguars|Colts","18|Sun|13:00|Dolphins|Jets","18|Sun|13:00|Vikings|Lions","18|Sun|18:00|Patriots|Bills","18|Sun|13:00|Saints|Buccaneers","18|Sun|13:00|Giants|Eagles","18|Sun|13:00|Chargers|Raiders","18|Sun|13:00|Rams|Seahawks"
     ];
 
-    const SCHEDULE_DATA = RAW_SCHEDULE.map((str, idx) => {
+    const SCHEDULE_DATA = [];
+    RAW_SCHEDULE.forEach((str, idx) => {
       const [w, day, time, away, home] = str.split('|');
-      return { id: `g2026_${idx + 1}`, week: parseInt(w), day, time, away, home };
+      const mapName = t => t === "Dallas" ? "Cowboys" : (t === "Buffalo" ? "Bills" : t);
+      SCHEDULE_DATA.push({ id: `g2026_${idx + 1}`, week: parseInt(w), day, time, away: mapName(away), home: mapName(home) });
     });
 
-    let userPicks = JSON.parse(localStorage.getItem('nfl_picks_v2')) || {};
-    let playoffPicks = JSON.parse(localStorage.getItem('nfl_playoffs_v2')) || {};
+    let userPicks = JSON.parse(localStorage.getItem('nfl_picks_v5')) || {};
+    let playoffPicks = JSON.parse(localStorage.getItem('nfl_playoffs_v5')) || {};
     let activeDiv = "NFC East";
     let activeTeam = "Eagles";
 
     function saveState() {
-      localStorage.setItem('nfl_picks_v2', JSON.stringify(userPicks));
-      localStorage.setItem('nfl_playoffs_v2', JSON.stringify(playoffPicks));
+      localStorage.setItem('nfl_picks_v5', JSON.stringify(userPicks));
+      localStorage.setItem('nfl_playoffs_v5', JSON.stringify(playoffPicks));
+      
+      const statusEl = document.getElementById('save-status');
+      if (statusEl) {
+        statusEl.innerText = "✓ Picks auto-saved to device";
+        setTimeout(() => { statusEl.innerText = ""; }, 2500);
+      }
+    }
+
+    function explicitSavePicks() {
+      saveState();
+      alert("Success! All your schedule and playoff picks are saved on this device.");
+    }
+
+    function explicitLoadPicks() {
+      userPicks = JSON.parse(localStorage.getItem('nfl_picks_v5')) || {};
+      playoffPicks = JSON.parse(localStorage.getItem('nfl_playoffs_v5')) || {};
+      renderSchedules(); renderStandings(); renderPlayoffs();
+      alert("Saved picks have been loaded!");
     }
 
     function resetAllData() {
@@ -156,7 +240,8 @@
     function initSchedulesNav() {
       const divNav = document.getElementById('div-nav');
       divNav.innerHTML = '';
-      Object.keys(DIVISIONS).forEach(div => {
+      
+      DIVISION_ORDER.forEach(div => {
         const btn = document.createElement('button');
         btn.className = `div-btn ${div === activeDiv ? 'active' : ''}`;
         btn.innerText = div;
@@ -181,6 +266,17 @@
       });
     }
 
+    function getTeamPickBtnStyle(team, isSelectedWinner, hasLoss) {
+      if (isSelectedWinner) {
+        const colors = TEAM_COLORS[team] || { bg: "#16a34a", text: "#ffffff" };
+        return `style="background-color: ${colors.bg}; color: ${colors.text}; border-color: ${colors.bg}; font-weight: bold;" class="pick-btn"`;
+      }
+      if (hasLoss) {
+        return `class="pick-btn selected-loss"`;
+      }
+      return `class="pick-btn"`;
+    }
+
     function renderSchedules() {
       const list = document.getElementById('schedule-list');
       list.innerHTML = '';
@@ -195,19 +291,20 @@
           card.innerHTML = `<div class="game-header"><span>WEEK ${w}</span><span>BYE WEEK</span></div><div style="font-size:0.85rem; color:var(--text-muted); text-align:center;">No game scheduled</div>`;
         } else {
           const pickedWinner = userPicks[game.id];
+          const awayStyle = getTeamPickBtnStyle(game.away, pickedWinner === game.away, pickedWinner && pickedWinner !== game.away);
+          const homeStyle = getTeamPickBtnStyle(game.home, pickedWinner === game.home, pickedWinner && pickedWinner !== game.home);
+
           card.innerHTML = `
             <div class="game-header">
               <span>WEEK ${game.week} • ${game.day} ${game.time} ET</span>
               <span>${game.away === activeTeam ? 'AWAY' : 'HOME'}</span>
             </div>
             <div class="game-matchup">
-              <button class="pick-btn ${pickedWinner === game.away ? 'selected-win' : (pickedWinner ? 'selected-loss' : '')}" 
-                      onclick="makePick('${game.id}', '${game.away}')">
+              <button ${awayStyle} onclick="makePick('${game.id}', '${game.away}')">
                 ${game.away}
               </button>
               <span class="vs-text">@</span>
-              <button class="pick-btn ${pickedWinner === game.home ? 'selected-win' : (pickedWinner ? 'selected-loss' : '')}" 
-                      onclick="makePick('${game.id}', '${game.home}')">
+              <button ${homeStyle} onclick="makePick('${game.id}', '${game.home}')">
                 ${game.home}
               </button>
             </div>
@@ -254,7 +351,7 @@
       container.innerHTML = '';
       const divRankings = getSortedDivisions();
 
-      Object.keys(divRankings).forEach(div => {
+      DIVISION_ORDER.forEach(div => {
         const sec = document.createElement('div');
         sec.className = 'standings-sec';
         let rowsHTML = divRankings[div].map(t => {
@@ -298,7 +395,6 @@
       sec.className = 'bracket-sec';
       let html = `<div class="bracket-title">${conf} Playoff Bracket</div>`;
 
-      // Prominent #1 Seed Bye Display
       const topSeed = seeds[0];
       if (topSeed) {
         html += `<div class="seed-bye-box">⭐ #1 SEED BYE: ${topSeed.name} (${topSeed.w}-${topSeed.l}) ⭐</div>`;
@@ -306,7 +402,6 @@
         html += `<div class="seed-bye-box">⭐ #1 SEED BYE: TBD ⭐</div>`;
       }
 
-      // Wild Card Round
       html += `<div style="font-size:0.8rem; color:var(--accent-gold); margin:8px 0 6px; font-weight:bold;">1. WILD CARD ROUND</div>`;
       const wcMatches = [
         { key: `${conf}_WC1`, high: seeds[1], low: seeds[6] },
@@ -318,7 +413,6 @@
         html += `<div class="matchup-box">${renderMatchupBtns(m.key, m.high, m.low)}</div>`;
       });
 
-      // Wild Card Winners
       const wcWinners = [];
       wcMatches.forEach(m => {
         const picked = playoffPicks[m.key];
@@ -328,7 +422,6 @@
         }
       });
 
-      // Divisional Round
       html += `<div style="font-size:0.8rem; color:var(--accent-gold); margin:12px 0 6px; font-weight:bold;">2. DIVISIONAL ROUND</div>`;
       if (wcWinners.length < 3) {
         html += `<div style="font-size:0.75rem; color:var(--text-muted); padding:8px; text-align:center;">Pick all 3 Wild Card winners to unlock Divisional matchups</div>`;
@@ -343,7 +436,6 @@
           html += `<div class="matchup-box">${renderMatchupBtns(m.key, m.high, m.low)}</div>`;
         });
 
-        // Conference Championship
         const divWinners = [];
         divMatches.forEach(m => {
           const picked = playoffPicks[m.key];
@@ -383,7 +475,8 @@
         html += `<div class="matchup-box">${renderMatchupBtns("SUPER_BOWL", afcChamp, nfcChamp)}</div>`;
         const sbWinner = playoffPicks["SUPER_BOWL"];
         if (sbWinner) {
-          html += `<div style="text-align:center; padding:12px; font-weight:bold; color:var(--accent-gold); font-size:1.1rem; border:1px solid var(--accent-gold); border-radius:8px; margin-top:10px; background-color:#0f172a;">🏆 SUPER BOWL CHAMPION: ${sbWinner.toUpperCase()} 🏆</div>`;
+          const colors = TEAM_COLORS[sbWinner] || { bg: "#0f172a", text: "#eab308" };
+          html += `<div style="text-align:center; padding:12px; font-weight:bold; color:${colors.text}; font-size:1.1rem; border:2px solid ${colors.bg}; border-radius:8px; margin-top:10px; background-color:${colors.bg};">🏆 SUPER BOWL CHAMPION: ${sbWinner.toUpperCase()} 🏆</div>`;
         }
       }
 
@@ -394,12 +487,15 @@
     function renderMatchupBtns(matchKey, t1, t2) {
       if (!t1 || !t2) return `<div style="padding:6px; color:#64748b;">TBD</div>`;
       const picked = playoffPicks[matchKey];
+      const t1Style = getTeamPickBtnStyle(t1.name, picked === t1.name, picked && picked !== t1.name);
+      const t2Style = getTeamPickBtnStyle(t2.name, picked === t2.name, picked && picked !== t2.name);
+
       return `
-        <button class="pick-btn ${picked === t1.name ? 'selected-win' : (picked ? 'selected-loss' : '')}" onclick="pickPlayoff('${matchKey}', '${t1.name}')">
+        <button ${t1Style} onclick="pickPlayoff('${matchKey}', '${t1.name}')">
           ${t1.name}
         </button>
         <span class="vs-text">vs</span>
-        <button class="pick-btn ${picked === t2.name ? 'selected-win' : (picked ? 'selected-loss' : '')}" onclick="pickPlayoff('${matchKey}', '${t2.name}')">
+        <button ${t2Style} onclick="pickPlayoff('${matchKey}', '${t2.name}')">
           ${t2.name}
         </button>
       `;
