@@ -28,7 +28,7 @@
     .tab-content { display: none; padding: 12px; max-width: 650px; margin: 0 auto; }
     .tab-content.active { display: block; }
 
-    /* Forced 2-column grid: AFC on Left, NFC on Right */
+    /* Left = AFC, Right = NFC */
     .division-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
     .teams-sub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
     
@@ -39,6 +39,8 @@
     .action-btn { flex: 1; padding: 8px; border-radius: 6px; border: 1px solid var(--card-border); background-color: var(--card-bg); color: var(--text-main); font-weight: 600; font-size: 0.8rem; cursor: pointer; text-align: center; }
     .action-btn.save-btn { border-color: var(--accent-gold); color: var(--accent-gold); }
     .save-status-text { text-align: center; font-size: 0.75rem; color: #4ade80; margin-bottom: 10px; min-height: 16px; }
+
+    .loading-spinner { text-align: center; padding: 30px; color: var(--accent-gold); font-weight: bold; font-size: 1rem; }
 
     .game-card { background-color: var(--card-bg); border: 1px solid var(--card-border); border-radius: 10px; padding: 10px 12px; margin-bottom: 10px; }
     .game-header { display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 8px; border-bottom: 1px solid #334155; padding-bottom: 4px; }
@@ -77,7 +79,7 @@
     </div>
     <div class="save-status-text" id="save-status"></div>
 
-    <div id="schedule-list"></div>
+    <div id="schedule-list"><div class="loading-spinner">📡 Fetching official live NFL schedule...</div></div>
   </div>
 
   <div id="tab-standings" class="tab-content">
@@ -96,7 +98,6 @@
   </nav>
 
   <script>
-    // Explicit division list ordered Left Column (AFC) to Right Column (NFC)
     const DIVISION_ORDER = [
       "AFC North", "NFC North",
       "AFC East",  "NFC East",
@@ -115,47 +116,39 @@
       "NFC South": ["Falcons", "Buccaneers", "Saints", "Panthers"]
     };
 
-    // Primary Brand Colors & Text Colors
     const TEAM_COLORS = {
-      "Eagles":     { bg: "#004C54", text: "#FFFFFF" }, // Midnight Green
-      "Commanders": { bg: "#5A1414", text: "#FFB612" }, // Burgundy
-      "Cowboys":    { bg: "#003594", text: "#FFFFFF" }, // Navy Blue
-      "Giants":     { bg: "#0B2265", text: "#FFFFFF" }, // Blue
-      
-      "Lions":      { bg: "#0076B6", text: "#FFFFFF" }, // Honolulu Blue
-      "Packers":    { bg: "#203731", text: "#FFB612" }, // Dark Green
-      "Bears":      { bg: "#0B162A", text: "#C83803" }, // Navy/Orange
-      "Vikings":    { bg: "#4F2683", text: "#FFC62F" }, // Purple
-      
-      "Falcons":    { bg: "#A71930", text: "#FFFFFF" }, // Red
-      "Buccaneers": { bg: "#D50A0A", text: "#FFFFFF" }, // Red
-      "Saints":     { bg: "#D3BC8D", text: "#101820" }, // Gold
-      "Panthers":   { bg: "#0085CA", text: "#FFFFFF" }, // Process Blue
-      
-      "49ers":      { bg: "#AA0000", text: "#B3995D" }, // Red/Gold
-      "Rams":       { bg: "#003594", text: "#FFA300" }, // Royal Blue
-      "Seahawks":   { bg: "#002244", text: "#69BE28" }, // Navy/Action Green
-      "Cardinals":  { bg: "#97233F", text: "#FFFFFF" }, // Cardinal Red
-      
-      "Bills":      { bg: "#00338D", text: "#C60C30" }, // Royal Blue
-      "Dolphins":   { bg: "#008E97", text: "#FC4C02" }, // Aqua
-      "Patriots":   { bg: "#002244", text: "#C60C30" }, // Nautical Blue
-      "Jets":       { bg: "#125740", text: "#FFFFFF" }, // Gotham Green
-      
-      "Ravens":     { bg: "#241773", text: "#FFFFFF" }, // Purple
-      "Bengals":    { bg: "#FB4F14", text: "#000000" }, // Orange
-      "Browns":     { bg: "#311D00", text: "#FF3C00" }, // Brown/Orange
-      "Steelers":   { bg: "#101820", text: "#FFB81C" }, // Black/Gold
-      
-      "Texans":     { bg: "#03202F", text: "#A71930" }, // Deep Steel Blue
-      "Jaguars":    { bg: "#006778", text: "#D7A22A" }, // Teal
-      "Colts":      { bg: "#002C5F", text: "#FFFFFF" }, // Speed Blue
-      "Titans":     { bg: "#0C2340", text: "#4B92DB" }, // Navy/Titans Blue
-      
-      "Chiefs":     { bg: "#E31837", text: "#FFB81C" }, // Red/Gold
-      "Chargers":   { bg: "#0080C6", text: "#FFC20E" }, // Powder Blue
-      "Broncos":    { bg: "#FB4F14", text: "#002244" }, // Orange
-      "Raiders":    { bg: "#000000", text: "#A5ACAF" }  // Black/Silver
+      "Eagles":     { bg: "#004C54", text: "#FFFFFF" },
+      "Commanders": { bg: "#5A1414", text: "#FFB612" },
+      "Cowboys":    { bg: "#003594", text: "#FFFFFF" },
+      "Giants":     { bg: "#0B2265", text: "#FFFFFF" },
+      "Lions":      { bg: "#0076B6", text: "#FFFFFF" },
+      "Packers":    { bg: "#203731", text: "#FFB612" },
+      "Bears":      { bg: "#0B162A", text: "#C83803" },
+      "Vikings":    { bg: "#4F2683", text: "#FFC62F" },
+      "Falcons":    { bg: "#A71930", text: "#FFFFFF" },
+      "Buccaneers": { bg: "#D50A0A", text: "#FFFFFF" },
+      "Saints":     { bg: "#D3BC8D", text: "#101820" },
+      "Panthers":   { bg: "#0085CA", text: "#FFFFFF" },
+      "49ers":      { bg: "#AA0000", text: "#B3995D" },
+      "Rams":       { bg: "#003594", text: "#FFA300" },
+      "Seahawks":   { bg: "#002244", text: "#69BE28" },
+      "Cardinals":  { bg: "#97233F", text: "#FFFFFF" },
+      "Bills":      { bg: "#00338D", text: "#C60C30" },
+      "Dolphins":   { bg: "#008E97", text: "#FC4C02" },
+      "Patriots":   { bg: "#002244", text: "#C60C30" },
+      "Jets":       { bg: "#125740", text: "#FFFFFF" },
+      "Ravens":     { bg: "#241773", text: "#FFFFFF" },
+      "Bengals":    { bg: "#FB4F14", text: "#000000" },
+      "Browns":     { bg: "#311D00", text: "#FF3C00" },
+      "Steelers":   { bg: "#101820", text: "#FFB81C" },
+      "Texans":     { bg: "#03202F", text: "#A71930" },
+      "Jaguars":    { bg: "#006778", text: "#D7A22A" },
+      "Colts":      { bg: "#002C5F", text: "#FFFFFF" },
+      "Titans":     { bg: "#0C2340", text: "#4B92DB" },
+      "Chiefs":     { bg: "#E31837", text: "#FFB81C" },
+      "Chargers":   { bg: "#0080C6", text: "#FFC20E" },
+      "Broncos":    { bg: "#FB4F14", text: "#002244" },
+      "Raiders":    { bg: "#000000", text: "#A5ACAF" }
     };
 
     const TEAMS = {};
@@ -164,42 +157,93 @@
       DIVISIONS[div].forEach(t => TEAMS[t] = { conf, div });
     });
 
-    const RAW_SCHEDULE = [
-      "1|Thu|20:20|Chiefs|Ravens","1|Fri|20:15|Packers|Eagles","1|Sun|13:00|Panthers|Saints","1|Sun|13:00|Vikings|Giants","1|Sun|13:00|Patriots|Bengals","1|Sun|13:00|Steelers|Falcons","1|Sun|13:00|Texans|Colts","1|Sun|13:00|Cardinals|Bills","1|Sun|13:00|Titans|Bears","1|Sun|13:00|Jaguars|Dolphins","1|Sun|16:05|Broncos|Seahawks","1|Sun|16:25|Raiders|Chargers","1|Sun|16:25|Cowboys|Browns","1|Sun|16:25|Commanders|Buccaneers","1|Sun|20:20|Rams|Lions","1|Mon|20:15|Jets|49ers",
-      "2|Thu|20:15|Bills|Dolphins","2|Sun|13:00|Raiders|Ravens","2|Sun|13:00|Chargers|Panthers","2|Sun|13:00|Saints|Cowboys","2|Sun|13:00|Buccaneers|Lions","2|Sun|13:00|Colts|Packers","2|Sun|13:00|Browns|Jaguars","2|Sun|13:00|49ers|Vikings","2|Sun|13:00|Seahawks|Patriots","2|Sun|13:00|Giants|Commanders","2|Sun|16:05|Rams|Cardinals","2|Sun|16:25|Bengals|Chiefs","2|Sun|16:25|Steelers|Broncos","2|Sun|20:20|Bears|Texans","2|Mon|20:15|Falcons|Eagles",
-      "3|Thu|20:15|Patriots|Jets","3|Sun|13:00|Giants|Browns","3|Sun|13:00|Bears|Colts","3|Sun|13:00|Texans|Vikings","3|Sun|13:00|Eagles|Saints","3|Sun|13:00|Chargers|Steelers","3|Sun|13:00|Broncos|Buccaneers","3|Sun|13:00|Packers|Titans","3|Sun|13:00|Falcons|Panthers","3|Sun|16:05|Dolphins|Seahawks","3|Sun|16:05|Panthers|Raiders","3|Sun|16:25|Lions|Cardinals","3|Sun|16:25|Ravens|Cowboys","3|Sun|16:25|49ers|Rams","3|Sun|20:20|Chiefs|Falcons","3|Mon|20:15|Jaguars|Bills",
-      "4|Thu|20:15|Cowboys|Giants","4|Sun|13:00|Saints|Falcons","4|Sun|13:00|Bengals|Panthers","4|Sun|13:00|Rams|Bears","4|Sun|13:00|Vikings|Packers","4|Sun|13:00|Jaguars|Texans","4|Sun|13:00|Steelers|Colts","4|Sun|13:00|Broncos|Jets","4|Sun|13:00|Eagles|Buccaneers","4|Sun|16:05|Commanders|Cardinals","4|Sun|16:05|Patriots|49ers","4|Sun|16:25|Chiefs|Chargers","4|Sun|16:25|Browns|Raiders","4|Sun|20:20|Bills|Ravens","4|Mon|19:30|Titans|Dolphins","4|Mon|21:00|Seahawks|Lions",
-      "5|Thu|20:15|Buccaneers|Falcons","5|Sun|09:30|Jets|Vikings","5|Sun|13:00|Panthers|Bears","5|Sun|13:00|Ravens|Bengals","5|Sun|13:00|Bills|Texans","5|Sun|13:00|Colts|Jaguars","5|Sun|13:00|Dolphins|Patriots","5|Sun|13:00|Browns|Commanders","5|Sun|16:05|Raiders|Broncos","5|Sun|16:25|Cardinals|49ers","5|Sun|16:25|Packers|Rams","5|Sun|20:20|Cowboys|Steelers","5|Mon|20:15|Saints|Chiefs",
-      "6|Thu|20:15|49ers|Seahawks","6|Sun|09:30|Jaguars|Bears","6|Sun|13:00|Commanders|Ravens","6|Sun|13:00|Cardinals|Packers","6|Sun|13:00|Texans|Patriots","6|Sun|13:00|Buccaneers|Saints","6|Sun|13:00|Browns|Eagles","6|Sun|13:00|Colts|Titans","6|Sun|16:05|Chargers|Broncos","6|Sun|16:25|Lions|Cowboys","6|Sun|16:25|Falcons|Panthers","6|Sun|20:20|Bengals|Giants","6|Mon|20:15|Bills|Jets",
-      "7|Thu|20:15|Broncos|Saints","7|Sun|09:30|Patriots|Jaguars","7|Sun|13:00|Seahawks|Falcons","7|Sun|13:00|Titans|Bills","7|Sun|13:00|Bengals|Browns","7|Sun|13:00|Texans|Packers","7|Sun|13:00|Dolphins|Colts","7|Sun|13:00|Lions|Vikings","7|Sun|13:00|Eagles|Giants","7|Sun|16:05|Raiders|Rams","7|Sun|16:05|Panthers|Commanders","7|Sun|16:25|Chiefs|49ers","7|Sun|20:20|Jets|Steelers","7|Mon|21:00|Ravens|Buccaneers",
-      "8|Thu|20:15|Vikings|Rams","8|Sun|13:00|Ravens|Browns","8|Sun|13:00|Titans|Lions","8|Sun|13:00|Colts|Texans","8|Sun|13:00|Packers|Jaguars","8|Sun|13:00|Cardinals|Dolphins","8|Sun|13:00|Jets|Patriots","8|Sun|13:00|Falcons|Buccaneers","8|Sun|13:00|Bears|Commanders","8|Sun|16:05|Saints|Chargers","8|Sun|16:05|Bills|Seahawks","8|Sun|16:25|Panthers|Broncos","8|Sun|16:25|Chiefs|Raiders","8|Sun|20:20|Cowboys|49ers","8|Mon|20:15|Giants|Steelers",
-      "9|Thu|20:15|Texans|Jets","9|Sun|13:00|Cowboys|Falcons","9|Sun|13:00|Broncos|Ravens","9|Sun|13:00|Dolphins|Bills","9|Sun|13:00|Saints|Panthers","9|Sun|13:00|Raiders|Bengals","9|Sun|13:00|Chargers|Browns","9|Sun|13:00|Commanders|Giants","9|Sun|13:00|Patriots|Titans","9|Sun|16:05|Bears|Cardinals","9|Sun|16:25|Jaguars|Eagles","9|Sun|16:25|Lions|Packers","9|Sun|20:20|Colts|Vikings","9|Mon|20:15|Buccaneers|Chiefs",
-      "10|Thu|20:15|Bengals|Ravens","10|Sun|09:30|Giants|Panthers","10|Sun|13:00|Patriots|Bears","10|Sun|13:00|Bills|Colts","10|Sun|13:00|Vikings|Jaguars","10|Sun|13:00|Broncos|Chiefs","10|Sun|13:00|Falcons|Saints","10|Sun|13:00|49ers|Buccaneers","10|Sun|13:00|Steelers|Commanders","10|Sun|16:05|Titans|Chargers","10|Sun|16:25|Jets|Cardinals","10|Sun|16:25|Eagles|Cowboys","10|Sun|20:20|Lions|Texans","10|Mon|20:15|Dolphins|Rams",
-      "11|Thu|20:15|Commanders|Eagles","11|Sun|13:00|Packers|Bears","11|Sun|13:00|Jaguars|Lions","11|Sun|13:00|Vikings|Titans","11|Sun|13:00|Raiders|Dolphins","11|Sun|13:00|Rams|Patriots","11|Sun|13:00|Browns|Saints","11|Sun|13:00|Ravens|Steelers","11|Sun|16:05|Falcons|Broncos","11|Sun|16:05|Seahawks|49ers","11|Sun|16:25|Chiefs|Bills","11|Sun|20:20|Bengals|Chargers","11|Mon|20:15|Texans|Cowboys",
-      "12|Thu|20:15|Steelers|Browns","12|Sun|13:00|Chiefs|Panthers","12|Sun|13:00|Vikings|Bears","12|Sun|13:00|Titans|Texans","12|Sun|13:00|Lions|Colts","12|Sun|13:00|Patriots|Dolphins","12|Sun|13:00|Buccaneers|Giants","12|Sun|13:00|Cowboys|Commanders","12|Sun|16:05|Broncos|Raiders","12|Sun|16:05|49ers|Packers","12|Sun|16:25|Cardinals|Seahawks","12|Sun|20:20|Eagles|Rams","12|Mon|20:15|Ravens|Chargers",
-      "13|Thu|12:30|Bears|Lions","13|Thu|16:30|Giants|Cowboys","13|Thu|20:20|Dolphins|Packers","13|Fri|15:00|Raiders|Chiefs","13|Sun|13:00|Chargers|Falcons","13|Sun|13:00|Steelers|Bengals","13|Sun|13:00|Texans|Jaguars","13|Sun|13:00|Cardinals|Vikings","13|Sun|13:00|Colts|Patriots","13|Sun|13:00|Seahawks|Jets","13|Sun|13:00|Titans|Commanders","13|Sun|16:05|Buccaneers|Panthers","13|Sun|16:25|Rams|Saints","13|Sun|16:25|Eagles|Ravens","13|Sun|20:20|49ers|Bills","13|Mon|20:15|Browns|Broncos",
-      "14|Thu|20:15|Packers|Lions","14|Sun|13:00|Jets|Dolphins","14|Sun|13:00|Falcons|Vikings","14|Sun|13:00|Saints|Giants","14|Sun|13:00|Panthers|Eagles","14|Sun|13:00|Browns|Steelers","14|Sun|13:00|Raiders|Buccaneers","14|Sun|13:00|Jaguars|Titans","14|Sun|16:05|Seahawks|Cardinals","14|Sun|16:25|Bills|Rams","14|Sun|16:25|Bears|49ers","14|Sun|20:20|Chargers|Chiefs","14|Mon|20:15|Bengals|Cowboys",
-      "15|Thu|20:15|Rams|49ers","15|Sun|13:00|Dallas|Panthers","15|Sun|13:00|Chiefs|Browns","15|Sun|13:00|Dolphins|Texans","15|Sun|13:00|Jets|Jaguars","15|Sun|13:00|Commanders|Saints","15|Sun|13:00|Ravens|Giants","15|Sun|13:00|Bengals|Titans","15|Sun|16:05|Patriots|Cardinals","15|Sun|16:05|Colts|Broncos","15|Sun|16:25|Buffalo|Lions","15|Sun|16:25|Buccaneers|Chargers","15|Sun|20:20|Packers|Seahawks","15|Mon|20:15|Bears|Vikings",
-      "16|Thu|20:15|Broncos|Chargers","16|Sat|13:00|Texans|Chiefs","16|Sat|16:30|Steelers|Ravens","16|Sun|13:00|Giants|Falcons","16|Sun|13:00|Patriots|Bills","16|Sun|13:00|Cardinals|Panthers","16|Sun|13:00|Lions|Bears","16|Sun|13:00|Titans|Colts","16|Sun|13:00|Rams|Jets","16|Sun|13:00|Eagles|Commanders","16|Sun|16:05|Vikings|Seahawks","16|Sun|16:25|Browns|Bengals","16|Sun|16:25|49ers|Dolphins","16|Sun|20:20|Buccaneers|Cowboys","16|Mon|20:15|Saints|Packers",
-      "17|Wed|13:00|Chiefs|Steelers","17|Wed|16:30|Ravens|Texans","17|Thu|20:15|Seahawks|Bears","17|Sat|13:00|Chargers|Patriots","17|Sat|16:30|Broncos|Bengals","17|Sat|20:00|Cardinals|Rams","17|Sun|13:00|Jets|Bills","17|Sun|13:00|Titans|Jaguars","17|Sun|13:00|Packers|Vikings","17|Sun|13:00|Raiders|Saints","17|Sun|13:00|Panthers|Buccaneers","17|Sun|13:00|Cowboys|Eagles","17|Sun|16:25|Lions|49ers","17|Sun|16:25|Falcons|Commanders","17|Sun|20:20|Dolphins|Browns","17|Mon|20:15|Lions|Bears",
-      "18|Sun|13:00|49ers|Cardinals","18|Sun|13:00|Panthers|Falcons","18|Sun|13:00|Ravens|Bengals","18|Sun|13:00|Bears|Packers","18|Sun|13:00|Browns|Ravens","18|Sun|13:00|Cowboys|Commanders","18|Sun|13:00|Chiefs|Broncos","18|Sun|13:00|Texans|Titans","18|Sun|13:00|Jaguars|Colts","18|Sun|13:00|Dolphins|Jets","18|Sun|13:00|Vikings|Lions","18|Sun|18:00|Patriots|Bills","18|Sun|13:00|Saints|Buccaneers","18|Sun|13:00|Giants|Eagles","18|Sun|13:00|Chargers|Raiders","18|Sun|13:00|Rams|Seahawks"
-    ];
-
-    const SCHEDULE_DATA = [];
-    RAW_SCHEDULE.forEach((str, idx) => {
-      const [w, day, time, away, home] = str.split('|');
-      const mapName = t => t === "Dallas" ? "Cowboys" : (t === "Buffalo" ? "Bills" : t);
-      SCHEDULE_DATA.push({ id: `g2026_${idx + 1}`, week: parseInt(w), day, time, away: mapName(away), home: mapName(home) });
-    });
-
-    let userPicks = JSON.parse(localStorage.getItem('nfl_picks_v5')) || {};
-    let playoffPicks = JSON.parse(localStorage.getItem('nfl_playoffs_v5')) || {};
+    let SCHEDULE_DATA = [];
+    let userPicks = JSON.parse(localStorage.getItem('nfl_picks_v6')) || {};
+    let playoffPicks = JSON.parse(localStorage.getItem('nfl_playoffs_v6')) || {};
     let activeDiv = "NFC East";
     let activeTeam = "Eagles";
 
+    // Standardize team names from ESPN API responses
+    function normalizeTeamName(name) {
+      if (!name) return "";
+      if (name.includes("Eagles")) return "Eagles";
+      if (name.includes("Commanders")) return "Commanders";
+      if (name.includes("Cowboys")) return "Cowboys";
+      if (name.includes("Giants")) return "Giants";
+      if (name.includes("Lions")) return "Lions";
+      if (name.includes("Packers")) return "Packers";
+      if (name.includes("Bears")) return "Bears";
+      if (name.includes("Vikings")) return "Vikings";
+      if (name.includes("Falcons")) return "Falcons";
+      if (name.includes("Buccaneers")) return "Buccaneers";
+      if (name.includes("Saints")) return "Saints";
+      if (name.includes("Panthers")) return "Panthers";
+      if (name.includes("49ers")) return "49ers";
+      if (name.includes("Rams")) return "Rams";
+      if (name.includes("Seahawks")) return "Seahawks";
+      if (name.includes("Cardinals")) return "Cardinals";
+      if (name.includes("Bills")) return "Bills";
+      if (name.includes("Dolphins")) return "Dolphins";
+      if (name.includes("Patriots")) return "Patriots";
+      if (name.includes("Jets")) return "Jets";
+      if (name.includes("Ravens")) return "Ravens";
+      if (name.includes("Bengals")) return "Bengals";
+      if (name.includes("Browns")) return "Browns";
+      if (name.includes("Steelers")) return "Steelers";
+      if (name.includes("Texans")) return "Texans";
+      if (name.includes("Jaguars")) return "Jaguars";
+      if (name.includes("Colts")) return "Colts";
+      if (name.includes("Titans")) return "Titans";
+      if (name.includes("Chiefs")) return "Chiefs";
+      if (name.includes("Chargers")) return "Chargers";
+      if (name.includes("Broncos")) return "Broncos";
+      if (name.includes("Raiders")) return "Raiders";
+      return name;
+    }
+
+    // Fetch official schedule from ESPN API across all 18 weeks
+    async function fetchLiveSchedule() {
+      try {
+        SCHEDULE_DATA = [];
+        for (let w = 1; w <= 18; w++) {
+          const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?week=${w}&seasontype=2`);
+          const data = await res.json();
+          
+          if (data && data.events) {
+            data.events.forEach((event, idx) => {
+              const competition = event.competitions[0];
+              const homeComp = competition.competitors.find(c => c.homeAway === 'home');
+              const awayComp = competition.competitors.find(c => c.homeAway === 'away');
+              
+              const homeTeam = normalizeTeamName(homeComp.team.displayName);
+              const awayTeam = normalizeTeamName(awayComp.team.displayName);
+              
+              const eventDate = new Date(event.date);
+              const dayStr = eventDate.toLocaleDateString('en-US', { weekday: 'short' });
+              const timeStr = eventDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+
+              SCHEDULE_DATA.push({
+                id: event.id || `live_${w}_${idx}`,
+                week: w,
+                day: dayStr,
+                time: timeStr,
+                away: awayTeam,
+                home: homeTeam
+              });
+            });
+          }
+        }
+        initSchedulesNav();
+        renderSchedules();
+      } catch (err) {
+        console.error(err);
+        document.getElementById('schedule-list').innerHTML = `<div style="text-align:center; padding:20px; color:var(--accent-red);">Unable to load live API data. Please check your network connection.</div>`;
+      }
+    }
+
     function saveState() {
-      localStorage.setItem('nfl_picks_v5', JSON.stringify(userPicks));
-      localStorage.setItem('nfl_playoffs_v5', JSON.stringify(playoffPicks));
+      localStorage.setItem('nfl_picks_v6', JSON.stringify(userPicks));
+      localStorage.setItem('nfl_playoffs_v6', JSON.stringify(playoffPicks));
       
       const statusEl = document.getElementById('save-status');
       if (statusEl) {
@@ -214,8 +258,8 @@
     }
 
     function explicitLoadPicks() {
-      userPicks = JSON.parse(localStorage.getItem('nfl_picks_v5')) || {};
-      playoffPicks = JSON.parse(localStorage.getItem('nfl_playoffs_v5')) || {};
+      userPicks = JSON.parse(localStorage.getItem('nfl_picks_v6')) || {};
+      playoffPicks = JSON.parse(localStorage.getItem('nfl_playoffs_v6')) || {};
       renderSchedules(); renderStandings(); renderPlayoffs();
       alert("Saved picks have been loaded!");
     }
@@ -296,7 +340,7 @@
 
           card.innerHTML = `
             <div class="game-header">
-              <span>WEEK ${game.week} • ${game.day} ${game.time} ET</span>
+              <span>WEEK ${game.week} • ${game.day} ${game.time}</span>
               <span>${game.away === activeTeam ? 'AWAY' : 'HOME'}</span>
             </div>
             <div class="game-matchup">
@@ -326,11 +370,15 @@
       
       SCHEDULE_DATA.forEach(g => {
         const winner = userPicks[g.id];
-        if (!winner) return;
+        if (!winner || !stats[winner]) return;
         const loser = winner === g.home ? g.away : g.home;
+        if (!stats[loser]) return;
+
         stats[winner].w += 1; stats[loser].l += 1;
-        if (TEAMS[winner].div === TEAMS[loser].div) { stats[winner].divW += 1; stats[loser].divL += 1; }
-        if (TEAMS[winner].conf === TEAMS[loser].conf) { stats[winner].confW += 1; stats[loser].confL += 1; }
+        if (TEAMS[winner] && TEAMS[loser]) {
+          if (TEAMS[winner].div === TEAMS[loser].div) { stats[winner].divW += 1; stats[loser].divL += 1; }
+          if (TEAMS[winner].conf === TEAMS[loser].conf) { stats[winner].confW += 1; stats[loser].confL += 1; }
+        }
       });
       return stats;
     }
@@ -507,8 +555,8 @@
       saveState(); renderPlayoffs();
     }
 
-    initSchedulesNav();
-    renderSchedules();
+    // Initialize by pulling the live ESPN schedule
+    fetchLiveSchedule();
   </script>
 </body>
 </html>
