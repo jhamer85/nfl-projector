@@ -206,7 +206,7 @@
       try {
         SCHEDULE_DATA = [];
         for (let w = 1; w <= 18; w++) {
-          const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?week=${w}&seasontype=2`);
+          const res = await fetch(`https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard?week=${w}&seasontype=2&dates=2026`);
           const data = await res.json();
           
           if (data && data.events) {
